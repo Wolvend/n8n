@@ -63,13 +63,15 @@ export const RESOURCE_CENTER_EXPERIMENT = createExperiment('063_resource_center_
 	variantInspiration: 'variant-inspiration',
 });
 
+export const SECURITY_AUDIT_UI_EXPERIMENT = createExperiment('064_security_audit_ui');
+export const SECURITY_ADVISORIES_EXPERIMENT = createExperiment('065_security_advisories');
 export const SIDEBAR_EXPANDED_EXPERIMENT = createExperiment('067_sidebar_expanded');
+export const DYNAMIC_TEMPLATES_EXPERIMENT = createExperiment('068_dynamic_templates');
 export const EMPTY_STATE_EXPERIMENT = createExperiment('070_empty_screen_layout', {
 	control: 'control',
 	variantBuilderPrompt: 'variant-builder-prompt',
 	variantTemplates: 'variant-templates',
 });
-
 export const EXPERIMENTS_TO_TRACK = [
 	EXTRA_TEMPLATE_LINKS_EXPERIMENT.name,
 	TEMPLATE_ONBOARDING_EXPERIMENT.name,
