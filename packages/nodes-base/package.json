@@ -17,6 +17,7 @@
     "test": "jest",
     "test:dev": "jest --watch",
     "test:integration:skip": "vitest run --config vitest.integration.config.ts"
+    "test:integration:kafka": "vitest run --config vitest.integration.config.ts"
   },
   "files": [
     "dist"
@@ -884,6 +885,10 @@
     "@types/xml2js": "catalog:",
     "eslint-plugin-n8n-nodes-base": "^1.16.5",
     "n8n-core": "workspace:*"
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "n8n-containers": "workspace:*",
+    "n8n-core": "workspace:*",
+    "vitest": "catalog:"
   },
   "dependencies": {
     "@aws-sdk/client-sso-oidc": "3.808.0",
