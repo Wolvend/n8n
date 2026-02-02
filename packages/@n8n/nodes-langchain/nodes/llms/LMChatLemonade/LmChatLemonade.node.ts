@@ -1,4 +1,3 @@
-import { ChatOpenAI, type ClientOptions } from '@langchain/openai';
 import {
 	NodeConnectionTypes,
 	type INodeType,
@@ -6,6 +5,8 @@ import {
 	type ISupplyDataFunctions,
 	type SupplyData,
 } from 'n8n-workflow';
+
+import { createChatModel } from '@n8n/ai-node-sdk';
 
 import type { LemonadeApiCredentialsType } from '../../../credentials/LemonadeApi.credentials';
 
@@ -68,51 +69,44 @@ export class LmChatLemonade implements INodeType {
 			stop?: string;
 		};
 
-		// Process stop sequences and maxTokens
-		const processedOptions: {
-			temperature?: number;
-			topP?: number;
-			frequencyPenalty?: number;
-			presencePenalty?: number;
-			maxTokens?: number;
-			stop?: string[] | undefined;
-		} = {
-			...options,
-			maxTokens: options.maxTokens && options.maxTokens > 0 ? options.maxTokens : undefined,
-			stop: undefined, // Will be set below if options.stop exists
-		};
-
+		// Process stop sequences
+		let stopSequences: string[] | undefined;
 		if (options.stop) {
-			const stopSequences = options.stop
+			stopSequences = options.stop
 				.split(',')
 				.map((s) => s.trim())
 				.filter((s) => s.length > 0);
-			processedOptions.stop = stopSequences.length > 0 ? stopSequences : undefined;
+			if (stopSequences.length === 0) {
+				stopSequences = undefined;
+			}
 		}
 
-		// Build configuration object like official OpenAI node
-		const configuration: ClientOptions = {
-			baseURL: credentials.baseUrl,
-		};
-
-		// Add custom headers if API key is provided
+		// Build headers
+		const headers: Record<string, string> = {};
 		if (credentials.apiKey) {
-			configuration.defaultHeaders = {
-				Authorization: `Bearer ${credentials.apiKey}`,
-			};
+			headers.Authorization = `Bearer ${credentials.apiKey}`;
 		}
 
-		configuration.fetchOptions = {
-			dispatcher: getProxyAgent(configuration.baseURL ?? '', {}),
-		};
-
-		const model = new ChatOpenAI({
+		// Create model using the SDK
+		const model = createChatModel(this, {
+			type: 'openaiCompatible',
 			apiKey: credentials.apiKey || 'lemonade-placeholder-key',
 			model: modelName,
-			...processedOptions,
-			configuration,
+			baseUrl: credentials.baseUrl,
+			temperature: options.temperature,
+			maxTokens: options.maxTokens && options.maxTokens > 0 ? options.maxTokens : undefined,
+			topP: options.topP,
+			frequencyPenalty: options.frequencyPenalty,
+			presencePenalty: options.presencePenalty,
+			stopSequences,
+			headers,
 			callbacks: [new N8nLlmTracing(this)],
 			onFailedAttempt: makeN8nLlmFailedAttemptHandler(this),
+			clientOptions: {
+				fetchOptions: {
+					dispatcher: getProxyAgent(credentials.baseUrl ?? '', {}),
+				},
+			},
 		});
 
 		return {

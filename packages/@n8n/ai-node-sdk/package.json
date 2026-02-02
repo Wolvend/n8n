@@ -1,0 +1,51 @@
+{
+  "name": "@n8n/ai-node-sdk",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "SDK for building AI community nodes for n8n",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "tsdown --watch",
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:dev": "vitest --silent=false",
+    "lint": "eslint src --quiet",
+    "lint:fix": "eslint src --fix",
+    "format": "biome format --write .",
+    "format:check": "biome ci ."
+  },
+  "dependencies": {
+    "@langchain/classic": "1.0.5",
+    "@langchain/core": "catalog:",
+    "@langchain/openai": "catalog:",
+    "zod": "catalog:",
+    "zod-to-json-schema": "3.23.3"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "devDependencies": {
+    "@n8n/eslint-config": "workspace:*",
+    "@n8n/typescript-config": "workspace:*",
+    "@n8n/vitest-config": "workspace:*",
+    "n8n-workflow": "workspace:*",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "license": "See LICENSE.md file in the root of the repository"
+}
