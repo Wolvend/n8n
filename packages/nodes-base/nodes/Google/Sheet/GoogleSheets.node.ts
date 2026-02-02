@@ -17,7 +17,12 @@ export class GoogleSheets extends VersionedNodeType {
 			builderHint: {
 				message:
 					'For storing workflow data (e.g., job leads, records), prefer n8n-nodes-base.dataTable with upsert operation to avoid duplicates. Use Google Sheets only when user explicitly needs spreadsheet integration.',
-				relatedNodes: ['n8n-nodes-base.dataTable'],
+				relatedNodes: [
+					{
+						nodeType: 'n8n-nodes-base.dataTable',
+						relationHint: 'Prefer for workflow data storage with upsert',
+					},
+				],
 			},
 		};
 

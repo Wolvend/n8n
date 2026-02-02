@@ -235,6 +235,58 @@ const mockAgentNode: INodeTypeDescription = {
 	},
 };
 
+// Mock node with NEW relatedNodes format (with relationHint)
+const mockAgentNodeWithRelationHints: INodeTypeDescription = {
+	name: '@n8n/n8n-nodes-langchain.agentV2',
+	displayName: 'AI Agent V2',
+	description: 'Generates an action plan and executes it. Can use external tools.',
+	group: ['transform'],
+	version: 3.1,
+	defaults: { name: 'AI Agent V2' },
+	inputs: ['main'],
+	outputs: ['main'],
+	properties: [],
+	builderHint: {
+		message: 'Always connect memory for conversation context',
+		relatedNodes: [
+			{
+				nodeType: '@n8n/n8n-nodes-langchain.memoryBufferWindow',
+				relationHint: 'Maintains conversation history for context',
+			},
+			{
+				nodeType: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
+				relationHint: 'Connect a chat model for responses',
+			},
+		],
+	},
+};
+
+// Mock memory node for relation hint tests
+const mockMemoryNode: INodeTypeDescription = {
+	name: '@n8n/n8n-nodes-langchain.memoryBufferWindow',
+	displayName: 'Simple Memory',
+	description: 'Stores conversation history in memory',
+	group: ['transform'],
+	version: 1,
+	defaults: { name: 'Simple Memory' },
+	inputs: ['main'],
+	outputs: ['main'],
+	properties: [],
+};
+
+// Mock chat model node for relation hint tests
+const mockChatModelNode: INodeTypeDescription = {
+	name: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
+	displayName: 'OpenAI Chat Model',
+	description: 'Access OpenAI chat models',
+	group: ['transform'],
+	version: 1,
+	defaults: { name: 'OpenAI Chat Model' },
+	inputs: ['main'],
+	outputs: ['main'],
+	properties: [],
+};
+
 // Mock Output Parser Structured node
 const mockOutputParserStructuredNode: INodeTypeDescription = {
 	name: '@n8n/n8n-nodes-langchain.outputParserStructured',
@@ -274,7 +326,7 @@ describe('CodeBuilderSearchTool', () => {
 			const result = await tool.invoke({ queries: ['form trigger'] });
 
 			expect(result).toContain('n8n-nodes-base.formTrigger');
-			expect(result).toContain('Builder Hint:');
+			expect(result).toContain('@builderHint');
 			expect(result).toContain('n8n-nodes-base.form');
 			expect(result).toContain('full form experience');
 		});
@@ -299,7 +351,7 @@ describe('CodeBuilderSearchTool', () => {
 			const result = await tool.invoke({ queries: ['respond webhook'] });
 
 			expect(result).toContain('n8n-nodes-base.respondToWebhook');
-			expect(result).toContain('Builder Hint:');
+			expect(result).toContain('@builderHint');
 			expect(result).toContain('responseMode');
 			expect(result).toContain('responseNode');
 		});
@@ -311,7 +363,7 @@ describe('CodeBuilderSearchTool', () => {
 			const result = await tool.invoke({ queries: ['form'] });
 
 			expect(result).toContain('n8n-nodes-base.form');
-			expect(result).toContain('Builder Hint:');
+			expect(result).toContain('@builderHint');
 			expect(result).toContain('formTrigger');
 		});
 
@@ -322,7 +374,7 @@ describe('CodeBuilderSearchTool', () => {
 			const result = await tool.invoke({ queries: ['agent'] });
 
 			expect(result).toContain('@n8n/n8n-nodes-langchain.agent');
-			expect(result).toContain('Builder Hint:');
+			expect(result).toContain('@builderHint');
 			expect(result).toContain('outputParserStructured');
 			expect(result).toContain('structured JSON output');
 		});
@@ -336,7 +388,7 @@ describe('CodeBuilderSearchTool', () => {
 
 			// Agent should be found
 			expect(result).toContain('@n8n/n8n-nodes-langchain.agent');
-			expect(result).toContain('Builder Hint:');
+			expect(result).toContain('@builderHint');
 			// outputParserStructured is in relatedNodes but not in the nodeTypeParser,
 			// so it won't appear as [RELATED] (can't find node info for it)
 			// This tests that the hint message itself references the related node
@@ -352,7 +404,7 @@ describe('CodeBuilderSearchTool', () => {
 
 			// Agent should be found directly
 			expect(result).toContain('@n8n/n8n-nodes-langchain.agent');
-			expect(result).toContain('Builder Hint:');
+			expect(result).toContain('@builderHint');
 
 			// outputParserStructured should appear as [RELATED] since it's in relatedNodes
 			// and available in the parser, but doesn't match "AI Agent" search directly
@@ -498,7 +550,68 @@ describe('CodeBuilderSearchTool', () => {
 			const result = await tool.invoke({ queries: ['http'] });
 
 			expect(result).toContain('n8n-nodes-base.httpRequest');
-			expect(result).not.toContain('Builder Hint:');
+			expect(result).not.toContain('@builderHint');
+		});
+	});
+
+	describe('relatedNodes with relationHint', () => {
+		it('should display relatedNodes with their relationHint under @relatedNodes section', async () => {
+			const nodeTypeParser = new NodeTypeParser([
+				mockAgentNodeWithRelationHints,
+				mockMemoryNode,
+				mockChatModelNode,
+			]);
+			const tool = createCodeBuilderSearchTool(nodeTypeParser);
+
+			const result = await tool.invoke({ queries: ['AI Agent V2'] });
+
+			// Should find the agent node
+			expect(result).toContain('@n8n/n8n-nodes-langchain.agentV2');
+
+			// Should have @relatedNodes section
+			expect(result).toContain('@relatedNodes');
+
+			// Should show related nodes with their hints
+			expect(result).toContain('@n8n/n8n-nodes-langchain.memoryBufferWindow');
+			expect(result).toContain('Maintains conversation history for context');
+			expect(result).toContain('@n8n/n8n-nodes-langchain.lmChatOpenAi');
+			expect(result).toContain('Connect a chat model for responses');
+		});
+
+		it('should format relatedNodes as nodeType: "relationHint"', async () => {
+			const nodeTypeParser = new NodeTypeParser([
+				mockAgentNodeWithRelationHints,
+				mockMemoryNode,
+				mockChatModelNode,
+			]);
+			const tool = createCodeBuilderSearchTool(nodeTypeParser);
+
+			const result = await tool.invoke({ queries: ['AI Agent V2'] });
+
+			// Should format as: - nodeType: "hint"
+			expect(result).toMatch(
+				/@n8n\/n8n-nodes-langchain\.memoryBufferWindow.*"Maintains conversation history for context"/s,
+			);
+			expect(result).toMatch(
+				/@n8n\/n8n-nodes-langchain\.lmChatOpenAi.*"Connect a chat model for responses"/s,
+			);
+		});
+
+		it('should NOT expand relatedNodes as full search results when using new format', async () => {
+			const nodeTypeParser = new NodeTypeParser([
+				mockAgentNodeWithRelationHints,
+				mockMemoryNode,
+				mockChatModelNode,
+			]);
+			const tool = createCodeBuilderSearchTool(nodeTypeParser);
+
+			const result = await tool.invoke({ queries: ['AI Agent V2'] });
+
+			// Should NOT have [RELATED] tags (old behavior)
+			expect(result).not.toContain('[RELATED]');
+
+			// Should NOT show "(+ X related)" count in header
+			expect(result).not.toMatch(/\(\+ \d+ related\)/);
 		});
 	});
 
@@ -556,7 +669,7 @@ describe('CodeBuilderSearchTool', () => {
 			expect(result).toContain('mode');
 		});
 
-		it('should NOT include discriminators section for nodes without patterns', async () => {
+		it('should show "none" discriminators for nodes without patterns', async () => {
 			const nodeTypeParser = new NodeTypeParser([
 				mockFreshserviceNode,
 				mockCodeNode,
@@ -566,28 +679,12 @@ describe('CodeBuilderSearchTool', () => {
 
 			const result = await tool.invoke({ queries: ['http request'] });
 
-			// HTTP Request node has no discriminators, so no section should appear
-			// The result should contain the node but without discriminator info
+			// HTTP Request node has no discriminators, so it should show "none"
 			expect(result).toContain('n8n-nodes-base.httpRequest');
 			expect(result).toContain('HTTP Request');
 
-			// Should NOT have discriminators section for HTTP Request
-			// Check that between httpRequest entry and next entry (or end), there's no "Discriminators:"
-			const lines = result.split('\n');
-			const httpRequestIndex = lines.findIndex((l) => l.includes('n8n-nodes-base.httpRequest'));
-			expect(httpRequestIndex).toBeGreaterThan(-1);
-
-			// Find if there's a discriminators line right after the HTTP Request entry
-			// (before the next "---" separator or end)
-			let hasDiscriminators = false;
-			for (let i = httpRequestIndex; i < lines.length; i++) {
-				if (lines[i].includes('---') || lines[i].startsWith('##')) break;
-				if (lines[i].includes('Discriminators:')) {
-					hasDiscriminators = true;
-					break;
-				}
-			}
-			expect(hasDiscriminators).toBe(false);
+			// Should show "Discriminators: none" for HTTP Request
+			expect(result).toContain('Discriminators: none');
 		});
 
 		it('should provide correct usage example in the output', async () => {

@@ -70,7 +70,12 @@ export class VectorStoreInMemory extends createVectorStoreNode<MemoryVectorStore
 		builderHint: {
 			message:
 				'For RAG workflows, connect this vector store to @n8n/n8n-nodes-langchain.retrieverVectorStore to create a retriever for the AI Agent.',
-			relatedNodes: ['@n8n/n8n-nodes-langchain.retrieverVectorStore'],
+			relatedNodes: [
+				{
+					nodeType: '@n8n/n8n-nodes-langchain.retrieverVectorStore',
+					relationHint: 'Connect for RAG workflows',
+				},
+			],
 		},
 	},
 	sharedFields: [
