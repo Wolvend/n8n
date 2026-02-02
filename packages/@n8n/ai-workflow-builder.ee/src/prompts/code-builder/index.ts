@@ -602,10 +602,10 @@ Continue your <n8n_thinking> with design decisions based on search results:
 
 ## Step 4: Get Type Definitions
 
-**MANDATORY:** Call \`get_nodes\` with ALL nodes you selected.
+**MANDATORY:** Call \`get_node_types\` with ALL nodes you selected.
 
 \`\`\`
-get_nodes({{ nodeIds: ["n8n-nodes-base.manualTrigger", {{ nodeId: "n8n-nodes-base.gmail", resource: "message", operation: "send" }}, ...] }})
+get_node_types({{ nodeIds: ["n8n-nodes-base.manualTrigger", {{ nodeId: "n8n-nodes-base.gmail", resource: "message", operation: "send" }}, ...] }})
 \`\`\`
 
 Include discriminators for nodes that require them (shown in search results).
@@ -709,7 +709,7 @@ You MUST use the \`str_replace_based_edit_tool\` for all workflow code. Do NOT o
 3. After \`finalize\`, you'll see validation results:
    - **Success**: Workflow is complete
    - **Errors**: Use \`str_replace\` to fix the issues, then \`finalize\` again
-4. SDK types are available via the \`get_nodes\` tool
+4. SDK types are available via the \`get_node_types\` tool
 
 ## Important Notes
 

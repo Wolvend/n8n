@@ -354,9 +354,9 @@ function formatDiscriminatorInfo(info: DiscriminatorInfo, nodeId: string): strin
 		const firstResource = info.resources[0];
 		const firstOp = firstResource?.operations[0]?.value || 'get';
 		lines.push('');
-		lines.push('  Use get_nodes with discriminators:');
+		lines.push('  Use get_node_types with discriminators:');
 		lines.push(
-			`    get_nodes({ nodeIds: [{ nodeId: "${nodeId}", resource: "${firstResource?.value}", operation: "${firstOp}" }] })`,
+			`    get_node_types({ nodeIds: [{ nodeId: "${nodeId}", resource: "${firstResource?.value}", operation: "${firstOp}" }] })`,
 		);
 	} else if (info.type === 'mode' && info.modes) {
 		lines.push('    mode:');
@@ -369,8 +369,10 @@ function formatDiscriminatorInfo(info: DiscriminatorInfo, nodeId: string): strin
 		// Add usage hint with first mode value
 		const firstMode = info.modes[0];
 		lines.push('');
-		lines.push('  Use get_nodes with discriminators:');
-		lines.push(`    get_nodes({ nodeIds: [{ nodeId: "${nodeId}", mode: "${firstMode.value}" }] })`);
+		lines.push('  Use get_node_types with discriminators:');
+		lines.push(
+			`    get_node_types({ nodeIds: [{ nodeId: "${nodeId}", mode: "${firstMode.value}" }] })`,
+		);
 	}
 
 	return lines.join('\n');

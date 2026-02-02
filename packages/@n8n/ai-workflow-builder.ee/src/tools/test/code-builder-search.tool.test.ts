@@ -640,8 +640,8 @@ describe('CodeBuilderSearchTool', () => {
 			expect(result).toContain('create');
 			expect(result).toContain('delete');
 
-			// Should include usage hint for get_nodes
-			expect(result).toContain('get_nodes');
+			// Should include usage hint for get_node_types
+			expect(result).toContain('get_node_types');
 			expect(result).toContain('resource');
 			expect(result).toContain('operation');
 		});
@@ -665,7 +665,7 @@ describe('CodeBuilderSearchTool', () => {
 			expect(result).toContain('runOnceForEachItem');
 
 			// Should include usage hint
-			expect(result).toContain('get_nodes');
+			expect(result).toContain('get_node_types');
 			expect(result).toContain('mode');
 		});
 
@@ -693,8 +693,8 @@ describe('CodeBuilderSearchTool', () => {
 
 			const result = await tool.invoke({ queries: ['freshservice'] });
 
-			// Should show how to call get_nodes with discriminators
-			expect(result).toMatch(/get_nodes.*nodeId.*freshservice.*resource.*operation/s);
+			// Should show how to call get_node_types with discriminators
+			expect(result).toMatch(/get_node_types.*nodeId.*freshservice.*resource.*operation/s);
 		});
 
 		it('should include discriminators for related nodes', async () => {

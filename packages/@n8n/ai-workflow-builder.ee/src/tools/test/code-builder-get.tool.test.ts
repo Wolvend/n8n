@@ -17,7 +17,7 @@ describe('CodeBuilderGetTool', () => {
 
 		it('should return a tool with correct name', () => {
 			const tool = createCodeBuilderGetTool();
-			expect(tool.name).toBe('get_nodes');
+			expect(tool.name).toBe('get_node_types');
 		});
 	});
 

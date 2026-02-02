@@ -509,11 +509,11 @@ export interface CodeBuilderGetToolOptions {
  */
 export function createCodeBuilderGetTool(options: CodeBuilderGetToolOptions = {}) {
 	const { generatedTypesDir } = options;
-	debugLog('Creating get_nodes tool', { generatedTypesDir });
+	debugLog('Creating get_node_types tool', { generatedTypesDir });
 
 	return tool(
 		async (input: { nodeIds: NodeRequest[] }) => {
-			debugLog('========== GET_NODES TOOL INVOKED ==========');
+			debugLog('========== GET_NODE_TYPES TOOL INVOKED ==========');
 			debugLog('Input', { nodeIds: input.nodeIds, count: input.nodeIds.length, generatedTypesDir });
 
 			const results: string[] = [];
@@ -560,12 +560,12 @@ export function createCodeBuilderGetTool(options: CodeBuilderGetToolOptions = {}
 				errorCount: errors.length,
 				responseLength: response.length,
 			});
-			debugLog('========== GET_NODES TOOL COMPLETE ==========');
+			debugLog('========== GET_NODE_TYPES TOOL COMPLETE ==========');
 
 			return response;
 		},
 		{
-			name: 'get_nodes',
+			name: 'get_node_types',
 			description:
 				'Get the full TypeScript type definitions for one or more nodes. Returns the complete type information including parameters, credentials, and node type variants. By default returns the latest version. For nodes with resource/operation or mode discriminators, you MUST specify them. Use search_nodes first to discover available discriminators. ALWAYS call this with ALL node types you plan to use BEFORE generating workflow code.',
 			schema: z.object({
