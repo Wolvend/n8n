@@ -2323,13 +2323,6 @@ export function generateSplitVersionIndexFile(
 		lines.push('\t;');
 	}
 
-	// Add extraTypeContext if available (appended as-is for flexibility)
-	const nodeWithBuilderHint = node as NodeTypeDescription & { builderHint?: NodeBuilderHint };
-	if (nodeWithBuilderHint.builderHint?.extraTypeContext) {
-		lines.push('');
-		lines.push(nodeWithBuilderHint.builderHint.extraTypeContext);
-	}
-
 	return lines.join('\n');
 }
 
@@ -2681,13 +2674,6 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 		lines.push(`export type ${nodeTypeName} = ${baseTypeName} & {`);
 		lines.push(`\tconfig: NodeConfig<Record<string, unknown>>;`);
 		lines.push('};');
-	}
-
-	// Add extraTypeContext if available (appended as-is for flexibility)
-	const nodeWithBuilderHint = node as NodeTypeDescription & { builderHint?: NodeBuilderHint };
-	if (nodeWithBuilderHint.builderHint?.extraTypeContext) {
-		lines.push('');
-		lines.push(nodeWithBuilderHint.builderHint.extraTypeContext);
 	}
 
 	return lines.join('\n');
@@ -3183,7 +3169,6 @@ interface BuilderHintInput {
 
 interface NodeBuilderHint {
 	inputs?: Record<string, BuilderHintInput>;
-	extraTypeContext?: string;
 }
 
 /**
