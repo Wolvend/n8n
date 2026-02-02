@@ -14,9 +14,20 @@
 import { inspect } from 'node:util';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
+import type { IRelatedNode } from 'n8n-workflow';
 import type { NodeTypeParser } from '../utils/node-type-parser';
 import { extractResourceOperations } from '../utils/resource-operation-extractor';
 import { extractModeDiscriminator, type ModeInfo } from './utils/discriminator-utils';
+
+/**
+ * Type guard to check if relatedNodes uses the new format with relationHint
+ */
+function isRelatedNodeArray(
+	relatedNodes: string[] | IRelatedNode[] | undefined,
+): relatedNodes is IRelatedNode[] {
+	if (!relatedNodes || relatedNodes.length === 0) return false;
+	return typeof relatedNodes[0] === 'object' && 'nodeType' in relatedNodes[0];
+}
 
 /**
  * Debug logging helper for search tool
@@ -104,7 +115,8 @@ function formatBuilderHint(
 }
 
 /**
- * Get direct related nodes for a node ID from its node type definition
+ * Get direct related nodes for a node ID from its node type definition.
+ * Returns just the node IDs (for legacy string[] format) or extracts nodeType from IRelatedNode[].
  */
 function getDirectRelatedNodeIds(
 	nodeTypeParser: NodeTypeParser,
@@ -112,7 +124,46 @@ function getDirectRelatedNodeIds(
 	version: number,
 ): string[] {
 	const nodeType = nodeTypeParser.getNodeType(nodeId, version);
-	return nodeType?.builderHint?.relatedNodes ?? [];
+	const relatedNodes = nodeType?.builderHint?.relatedNodes;
+	if (!relatedNodes) return [];
+
+	if (isRelatedNodeArray(relatedNodes)) {
+		return relatedNodes.map((r) => r.nodeType);
+	}
+	return relatedNodes;
+}
+
+/**
+ * Get related nodes with their hints for the new format.
+ * Returns undefined if using legacy string[] format.
+ */
+function getRelatedNodesWithHints(
+	nodeTypeParser: NodeTypeParser,
+	nodeId: string,
+	version: number,
+): IRelatedNode[] | undefined {
+	const nodeType = nodeTypeParser.getNodeType(nodeId, version);
+	const relatedNodes = nodeType?.builderHint?.relatedNodes;
+	if (!relatedNodes) return undefined;
+
+	if (isRelatedNodeArray(relatedNodes)) {
+		return relatedNodes;
+	}
+	return undefined;
+}
+
+/**
+ * Format related nodes with hints for display.
+ * Returns formatted string or empty string if no related nodes with hints.
+ */
+function formatRelatedNodesWithHints(relatedNodes: IRelatedNode[]): string {
+	if (relatedNodes.length === 0) return '';
+
+	const lines = ['  @relatedNodes'];
+	for (const related of relatedNodes) {
+		lines.push(`    - ${related.nodeType}: "${related.relationHint}"`);
+	}
+	return lines.join('\n');
 }
 
 /**
@@ -372,51 +423,69 @@ export function createCodeBuilderSearchTool(nodeTypeParser: NodeTypeParser) {
 						// Get builder hint
 						const builderHint = formatBuilderHint(nodeTypeParser, node.id, node.version);
 
+						// Check for new relatedNodes format with hints
+						const relatedNodesWithHints = getRelatedNodesWithHints(
+							nodeTypeParser,
+							node.id,
+							node.version,
+						);
+
 						// Get discriminator info
 						const discInfo = getDiscriminatorInfo(nodeTypeParser, node.id, node.version);
 						const discStr = formatDiscriminatorInfo(discInfo, node.id);
 
 						const parts = [basicInfo];
 						if (builderHint) parts.push(builderHint);
-						if (discStr) parts.push(discStr);
 
-						allNodeLines.push(parts.join('\n'));
+						// If using new format with hints, display @relatedNodes section instead of expanding
+						if (relatedNodesWithHints && relatedNodesWithHints.length > 0) {
+							const relatedNodesStr = formatRelatedNodesWithHints(relatedNodesWithHints);
+							if (relatedNodesStr) parts.push(relatedNodesStr);
+						} else {
+							// Legacy format: expand related nodes as [RELATED] entries
+							const relatedNodeIds = collectAllRelatedNodeIds(
+								nodeTypeParser,
+								[{ id: node.id, version: node.version }],
+								shownNodeIds,
+							);
 
-						// Get related nodes for THIS specific search result
-						const relatedNodeIds = collectAllRelatedNodeIds(
-							nodeTypeParser,
-							[{ id: node.id, version: node.version }],
-							shownNodeIds,
-						);
+							// Add related nodes immediately after their parent search result
+							// First, add discriminator info to current node
+							if (discStr) parts.push(discStr);
+							allNodeLines.push(parts.join('\n'));
 
-						// Add related nodes immediately after their parent search result
-						for (const relatedId of relatedNodeIds) {
-							const nodeType = nodeTypeParser.getNodeType(relatedId);
-							if (nodeType) {
-								const version = Array.isArray(nodeType.version)
-									? nodeType.version[nodeType.version.length - 1]
-									: nodeType.version;
-								const relatedTriggerTag = isTriggerNodeType(relatedId) ? ' [TRIGGER]' : '';
-								const relatedBasicInfo = `- ${relatedId}${relatedTriggerTag} [RELATED]\n  Display Name: ${nodeType.displayName}\n  Version: ${version}\n  Description: ${nodeType.description}`;
+							for (const relatedId of relatedNodeIds) {
+								const nodeType = nodeTypeParser.getNodeType(relatedId);
+								if (nodeType) {
+									const version = Array.isArray(nodeType.version)
+										? nodeType.version[nodeType.version.length - 1]
+										: nodeType.version;
+									const relatedTriggerTag = isTriggerNodeType(relatedId) ? ' [TRIGGER]' : '';
+									const relatedBasicInfo = `- ${relatedId}${relatedTriggerTag} [RELATED]\n  Display Name: ${nodeType.displayName}\n  Version: ${version}\n  Description: ${nodeType.description}`;
 
-								// Get builder hint for related node too
-								const relatedBuilderHint = formatBuilderHint(nodeTypeParser, relatedId, version);
+									// Get builder hint for related node too
+									const relatedBuilderHint = formatBuilderHint(nodeTypeParser, relatedId, version);
 
-								// Get discriminator info for related node
-								const relatedDiscInfo = getDiscriminatorInfo(nodeTypeParser, relatedId, version);
-								const relatedDiscStr = formatDiscriminatorInfo(relatedDiscInfo, relatedId);
+									// Get discriminator info for related node
+									const relatedDiscInfo = getDiscriminatorInfo(nodeTypeParser, relatedId, version);
+									const relatedDiscStr = formatDiscriminatorInfo(relatedDiscInfo, relatedId);
 
-								const relatedParts = [relatedBasicInfo];
-								if (relatedBuilderHint) relatedParts.push(relatedBuilderHint);
-								if (relatedDiscStr) relatedParts.push(relatedDiscStr);
+									const relatedParts = [relatedBasicInfo];
+									if (relatedBuilderHint) relatedParts.push(relatedBuilderHint);
+									if (relatedDiscStr) relatedParts.push(relatedDiscStr);
 
-								allNodeLines.push(relatedParts.join('\n'));
+									allNodeLines.push(relatedParts.join('\n'));
 
-								// Mark as shown to prevent duplicates
-								shownNodeIds.add(relatedId);
-								totalRelatedCount++;
+									// Mark as shown to prevent duplicates
+									shownNodeIds.add(relatedId);
+									totalRelatedCount++;
+								}
 							}
+							continue; // Skip the common push below since we handled it in the legacy branch
 						}
+
+						if (discStr) parts.push(discStr);
+						allNodeLines.push(parts.join('\n'));
 					}
 
 					const countSuffix = totalRelatedCount > 0 ? ` (+ ${totalRelatedCount} related)` : '';

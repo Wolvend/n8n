@@ -47,7 +47,12 @@ export class GoogleCalendar implements INodeType {
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
 		builderHint: {
-			relatedNodes: ['n8n-nodes-base.googleCalendarTool'],
+			relatedNodes: [
+				{
+					nodeType: 'n8n-nodes-base.googleCalendarTool',
+					relationHint: 'Tool version for AI Agent use',
+				},
+			],
 		},
 		usableAsTool: true,
 		credentials: [

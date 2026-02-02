@@ -24,6 +24,7 @@ import { NodeTypeParser } from './utils/node-type-parser';
 import { buildCodeBuilderPrompt } from './prompts/code-builder';
 import { createCodeBuilderSearchTool } from './tools/code-builder-search.tool';
 import { createCodeBuilderGetTool } from './tools/code-builder-get.tool';
+import { createGetSuggestedNodesTool } from './tools/get-suggested-nodes.tool';
 import type {
 	StreamOutput,
 	AgentMessageChunk,
@@ -132,7 +133,8 @@ export class CodeBuilderAgent {
 		// Create tools
 		const searchTool = createCodeBuilderSearchTool(this.nodeTypeParser);
 		const getTool = createCodeBuilderGetTool({ generatedTypesDir: config.generatedTypesDir });
-		this.tools = [searchTool, getTool];
+		const suggestedNodesTool = createGetSuggestedNodesTool(this.nodeTypeParser);
+		this.tools = [searchTool, getTool, suggestedNodesTool];
 		this.toolsMap = new Map(this.tools.map((t) => [t.name, t]));
 
 		this.debugLog('CONSTRUCTOR', 'CodeBuilderAgent initialized', {

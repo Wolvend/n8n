@@ -2312,6 +2312,16 @@ export interface IBuilderHintInputConfig {
 export type BuilderHintInputs = Record<string, IBuilderHintInputConfig>;
 
 /**
+ * Related node with explanation of why it's related
+ */
+export interface IRelatedNode {
+	/** The node type ID (e.g., '@n8n/n8n-nodes-langchain.memoryBufferWindow') */
+	nodeType: string;
+	/** Brief explanation of why this node is related (e.g., 'Maintains conversation history') */
+	relationHint: string;
+}
+
+/**
  * Builder hints for workflow-sdk type generation
  */
 export interface IBuilderHint {
@@ -2319,8 +2329,8 @@ export interface IBuilderHint {
 	inputs?: BuilderHintInputs;
 	/** General hint message for LLM workflow builders */
 	message?: string;
-	/** Related node IDs that work together with this node */
-	relatedNodes?: string[];
+	/** Related nodes that work together with this node - can be string[] (legacy) or IRelatedNode[] (with hints) */
+	relatedNodes?: string[] | IRelatedNode[];
 	/** Extra type context/examples to append to generated type files */
 	extraTypeContext?: string;
 }

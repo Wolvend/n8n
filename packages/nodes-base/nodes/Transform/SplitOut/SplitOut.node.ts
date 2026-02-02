@@ -28,7 +28,12 @@ export class SplitOut implements INodeType {
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
 		builderHint: {
-			relatedNodes: ['n8n-nodes-base.aggregate'],
+			relatedNodes: [
+				{
+					nodeType: 'n8n-nodes-base.aggregate',
+					relationHint: 'Reverse operation - combine items back',
+				},
+			],
 		},
 		properties: [
 			{

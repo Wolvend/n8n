@@ -453,11 +453,24 @@ Start your <planning> section by analyzing the user request:
 
 1. **Extract Requirements**: Quote or paraphrase what the user wants to accomplish.
 
-2. **Identify External Services**: List all external services mentioned (Gmail, Slack, Notion, APIs, etc.)
+2. **Identify Workflow Technique Category**: Does the request match a known pattern?
+   - chatbot: Receiving chat messages and replying (built-in chat, Telegram, Slack, etc.)
+   - notification: Sending alerts or updates via email, chat, SMS when events occur
+   - scheduling: Running actions at specific times or intervals
+   - data_transformation: Cleaning, formatting, or restructuring data
+   - data_persistence: Storing, updating, or retrieving records from persistent storage
+   - data_extraction: Pulling specific information from structured or unstructured inputs
+   - document_processing: Taking action on content within files (PDFs, Word docs, images)
+   - form_input: Gathering data from users via forms
+   - content_generation: Creating text, images, audio, or video
+   - triage: Classifying data for routing or prioritization
+   - scraping_and_research: Collecting information from websites or APIs
+
+3. **Identify External Services**: List all external services mentioned (Gmail, Slack, Notion, APIs, etc.)
    - Do NOT assume you know the node names yet
    - Just identify what services need to be connected
 
-3. **Identify Workflow Concepts**: What patterns are needed?
+4. **Identify Workflow Concepts**: What patterns are needed?
    - Trigger type (manual, schedule, webhook, etc.)
    - Branching/routing (if/else, switch)
    - Loops (batch processing)
@@ -479,7 +492,22 @@ If the request involves AI/LLM capabilities:
 
 ## Step 2: Discover Nodes
 
-**MANDATORY:** Before selecting any nodes, call \`search_nodes\` to find what's available.
+### Option A: Use get_suggested_nodes for known workflow patterns
+
+If the request matches one or more workflow technique categories (identified in Step 1), call \`get_suggested_nodes\` FIRST:
+
+\`\`\`
+get_suggested_nodes({{ categories: ["chatbot", "notification"] }})
+\`\`\`
+
+This returns:
+- **patternHint**: Typical node flow for the pattern (e.g., "Chat Trigger → AI Agent → Memory → Response")
+- **Suggested nodes** with their descriptions and usage notes
+- Category-specific guidance on configuration
+
+### Option B: Use search_nodes for specific services
+
+For services not covered by categories or to find specific nodes:
 
 \`\`\`
 search_nodes({{ queries: ["gmail", "slack", "schedule trigger", ...] }})
@@ -490,13 +518,14 @@ Search for:
 - Workflow concepts (e.g., "schedule", "webhook", "if condition")
 - AI-related terms if the request involves AI
 
-**You may call search_nodes multiple times** as you refine your understanding. This is encouraged.
+**You may call both tools** - get_suggested_nodes for curated recommendations, then search_nodes for specific services.
 
 Review the search results:
 - Note which nodes exist for each service
 - Note any [TRIGGER] tags for trigger nodes
 - Note discriminator requirements (resource/operation or mode)
 - Note [RELATED] nodes that might be useful
+- Note @relatedNodes with relationHints for complementary nodes
 - **Pay attention to @builderHint annotations** - these are guides specifically meant to help you choose the right node configurations
 
 ## Step 3: Design the Workflow

@@ -46,9 +46,12 @@ const descriptionV2: INodeTypeDescription = {
 		name: 'On form submission',
 	},
 	builderHint: {
-		message:
-			'Use with n8n-nodes-base.form to build a full form experience, with pages and final page',
-		relatedNodes: ['n8n-nodes-base.form'],
+		relatedNodes: [
+			{
+				nodeType: 'n8n-nodes-base.form',
+				relationHint: 'Add pages and final page to the form',
+			},
+		],
 	},
 
 	inputs: [],

@@ -76,6 +76,7 @@ export const createVectorStoreNode = <T extends VectorStore = VectorStore>(
 					],
 				},
 			},
+			builderHint: args.meta.builderHint,
 			credentials: args.meta.credentials,
 
 			inputs: `={{
