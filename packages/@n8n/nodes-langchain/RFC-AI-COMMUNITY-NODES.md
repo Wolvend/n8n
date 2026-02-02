@@ -402,6 +402,47 @@ export interface N8nTokenBufferMemoryOptions extends N8nBaseMemoryOptions {
 }
 ```
 
+#### Execution Context and Logging
+
+All factory functions require the node execution context (`this` from `supplyData`) as the first parameter. The factory automatically wraps the returned object with n8n's `logWrapper`, enabling execution logging in the workflow UI.
+
+```typescript
+// Factory signatures - context first, then options
+function createChatModel(
+  context: ISupplyDataFunctions,
+  options: N8nChatModelOptions
+): BaseChatModel;
+
+function createMemory(
+  context: ISupplyDataFunctions,
+  options: N8nMemoryOptions
+): BaseChatMemory;
+
+// Usage in supplyData - same pattern for all factories
+const memory = createMemory(this, {
+  type: 'bufferWindow',
+  chatHistory,
+  k: 10,
+});
+
+const model = createChatModel(this, {
+  type: 'openaiCompatible',
+  apiKey,
+  model: 'gpt-4',
+});
+
+return { response: memory };  // Already wrapped - no manual logWrapper needed
+```
+
+**Why require context and hide `logWrapper`?**
+
+| Concern | Decision |
+|---------|----------|
+| Community devs shouldn't need to know internal logging details | Hide complexity |
+| Forgetting to wrap breaks execution logging | Make context required |
+| Consistent behavior across all community nodes | Factory handles it |
+| `this` is always available in `supplyData` | No reason to make it optional |
+
 #### Base Classes for Extension
 
 ```typescript
@@ -566,7 +607,7 @@ export class MemoryRedis implements INodeType {
     const chatHistory = new RedisChatHistory({ client, sessionId, ttl });
 
     // Use factory to create LangChain-compatible memory
-    const memory = createMemory({
+    const memory = createMemory(this, {
       type: 'bufferWindow',
       chatHistory,
       k: contextWindow,
@@ -574,7 +615,7 @@ export class MemoryRedis implements INodeType {
     });
 
     return {
-      response: memory,
+      response: memory,  // Already wrapped with logWrapper
       closeFunction: async () => {
         await client.quit();
       },
@@ -651,7 +692,7 @@ export class LmChatCustomProvider implements INodeType {
 
     // Option A: If OpenAI-compatible, use simple config
     if (credentials.isOpenAICompatible) {
-      const model = createChatModel({
+      const model = createChatModel(this, {
         type: 'openaiCompatible',
         apiKey,
         baseUrl,
@@ -662,7 +703,7 @@ export class LmChatCustomProvider implements INodeType {
     }
 
     // Option B: Custom API - implement invoke/stream
-    const model = createChatModel({
+    const model = createChatModel(this, {
       type: 'custom',
       name: modelName,
 
@@ -743,7 +784,7 @@ export class LmChatCustomProvider implements INodeType {
 
 ## Migration Strategy
 
-### Phase 1: Foundation (Week 1-2)
+### Phase 1: Foundation
 
 1. **Create `@n8n/ai-node-sdk` package**
    - Define all public types and interfaces
@@ -755,7 +796,7 @@ export class LmChatCustomProvider implements INodeType {
    - `LmChatOpenAi` → Verify OpenAI-compatible path works
    - Validate no regressions
 
-### Phase 2: Core Adapters (Week 3-4)
+### Phase 2: Core Adapters
 
 1. **Implement factory functions**
    - `createChatModel()` with OpenAI-compatible and custom paths
@@ -766,7 +807,7 @@ export class LmChatCustomProvider implements INodeType {
    - Integration tests with real LangChain objects
    - E2E tests with sample community nodes
 
-### Phase 3: Documentation & Launch (Week 5-6)
+### Phase 3: Documentation & Launch
 
 1. **Developer documentation**
    - Getting started guide
@@ -792,4 +833,4 @@ Optionally migrate existing n8n AI nodes to use the SDK internally, ensuring the
 
 - Existing nodes continue using direct LangChain imports
 - AI Agent and chains receive the same LangChain objects
-- `logWrapper()` continues to work
+- `logWrapper()` is handled internally by factory functions (community devs don't need to know about it)
