@@ -1589,7 +1589,7 @@ class WorkflowBuilderImpl implements WorkflowBuilder {
 		const nodeName = parts.length > 1 ? parts[parts.length - 1] : nodeType;
 
 		// Map node name patterns to required AI connection types and subnode field names
-		// Field names match SubnodeConfig in sdk-api.ts
+		// Field names match SubnodeConfig in types/base.ts
 		// Excluded from validation (can be standalone):
 		// - vectorStore* - Can operate in retrieval mode as standalone node
 		// - retriever* - Connects to agents, complex usage patterns
@@ -3990,7 +3990,7 @@ class WorkflowBuilderImpl implements WorkflowBuilder {
 				}
 				// For arrays, don't update prevDoneNode - subsequent single nodes will chain from SIB or prev
 				// This matches the semantics of .onDone([a, b]) with subsequent single nodes - invalid usage
-				// For valid cases like .onDone(fanOut(a.then(c), b.then(c))), the tails are merged elsewhere
+				// For valid cases like .onDone([a.then(c), b.then(c)]), the tails are merged elsewhere
 			} else {
 				// Single node: chain to previous or connect to output 0
 				const doneNode = batch;
