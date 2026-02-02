@@ -22,8 +22,6 @@ import {
 	extractDiscriminatorCombinations,
 	getPropertiesForCombination,
 	filterPropertiesForVersion,
-	versionToTypeName,
-	getPackageName,
 	buildDiscriminatorTree,
 	extractAIInputTypesFromBuilderHint,
 } from './generate-types';
@@ -208,28 +206,6 @@ function hasDisplayOptions(properties: NodeProperty[]): boolean {
 		const stripped = stripDiscriminatorKeysFromDisplayOptions(prop.displayOptions, ['@version']);
 		return stripped !== undefined;
 	});
-}
-
-/**
- * Get base node name without package prefix
- */
-function getNodeBaseName(nodeName: string): string {
-	const parts = nodeName.split('.');
-	return parts[parts.length - 1];
-}
-
-/**
- * Get package prefix for type names (to avoid conflicts)
- */
-function getPackagePrefix(nodeName: string): string {
-	const pkg = getPackageName(nodeName);
-	if (pkg === 'n8n-nodes-base') {
-		return '';
-	}
-	if (pkg.includes('langchain')) {
-		return 'Lc';
-	}
-	return '';
 }
 
 /**
@@ -974,6 +950,8 @@ export function getSubnodeSchemaImports(aiInputTypes: AIInputTypeInfo[]): string
  * Generate Zod schema file content for a single version of a node
  *
  * This parallels generateSingleVersionTypeFile() but outputs Zod schemas.
+ * All schema helpers (z, expressionSchema, etc.) are received as parameters
+ * from the schema-validator, not imported from external files.
  *
  * @param node The node type description
  * @param specificVersion The specific version number to generate for
@@ -982,10 +960,6 @@ export function generateSingleVersionSchemaFile(
 	node: NodeTypeDescription,
 	specificVersion: number,
 ): string {
-	const prefix = getPackagePrefix(node.name);
-	const nodeName = prefix + toPascalCase(getNodeBaseName(node.name));
-	const versionSuffix = versionToTypeName(specificVersion);
-
 	// Filter properties for this version
 	const filteredProperties = filterPropertiesForVersion(node.properties, specificVersion);
 
@@ -999,30 +973,18 @@ export function generateSingleVersionSchemaFile(
 	// Extract AI input types for subnode schema
 	const aiInputTypes = extractAIInputTypesFromBuilderHint(filteredNode);
 	const subnodeSchemaImports = getSubnodeSchemaImports(aiInputTypes);
+	const hasAiInputs = aiInputTypes.length > 0;
 
-	// Check if we need to generate factory functions (properties with displayOptions)
-	const needsFactoryFunction = hasDisplayOptions(filteredProperties);
+	// Check if we need resolveSchema (properties with displayOptions or conditional AI inputs)
+	const needsResolveSchema =
+		hasDisplayOptions(filteredProperties) ||
+		(hasAiInputs && hasConditionalSubnodeFields(aiInputTypes));
 
 	const lines: string[] = [];
 
-	// Header
-	lines.push('/**');
-	lines.push(` * ${node.displayName} Node - Version ${specificVersion} - Zod Validation Schemas`);
-	lines.push(' *');
-	lines.push(' * These schemas validate node configuration at runtime.');
-	lines.push(' * Use .parse() for strict validation or .safeParse() for error handling.');
-	lines.push(' *');
-	lines.push(' * @generated - CommonJS JavaScript for runtime loading');
-	lines.push(' */');
-	lines.push('');
-
-	// Imports - CommonJS require syntax
-	// Path from nodes/n8n-nodes-base/nodeName/v1.schema.js to generated-types/base.schema.js
-	// is ../../../base.schema (3 levels: nodeName -> package -> nodes -> generated-types)
-	lines.push("const { z } = require('zod');");
-
-	// Build the list of base schema imports
-	const baseImports = [
+	// Build the list of helpers that will be destructured from factory parameters
+	const helpers = [
+		'z',
 		'expressionSchema',
 		'stringOrExpression',
 		'numberOrExpression',
@@ -1034,879 +996,163 @@ export function generateSingleVersionSchemaFile(
 		'iDataObjectSchema',
 	];
 
-	// Add resolveSchema import if we need factory functions
-	if (needsFactoryFunction) {
-		baseImports.push('resolveSchema');
+	// Add resolveSchema if we need it
+	if (needsResolveSchema) {
+		helpers.push('resolveSchema');
 	}
 
 	// Add subnode schema imports if this is an AI node
 	for (const schemaImport of subnodeSchemaImports) {
-		baseImports.push(schemaImport);
+		helpers.push(schemaImport);
 	}
 
-	lines.push(`const { ${baseImports.join(', ')} } = require('../../../base.schema');`);
+	// Header
+	lines.push('/**');
+	lines.push(` * ${node.displayName} Node - Version ${specificVersion} - Zod Validation Schemas`);
+	lines.push(' *');
+	lines.push(' * These schemas validate node configuration at runtime.');
+	lines.push(' * Use .parse() for strict validation or .safeParse() for error handling.');
+	lines.push(' *');
+	lines.push(' * Schema helpers (z, expressionSchema, etc.) are passed as parameters');
+	lines.push(' * by the schema-validator, not imported from external files.');
+	lines.push(' *');
+	lines.push(' * @generated - CommonJS JavaScript for runtime loading');
+	lines.push(' */');
 	lines.push('');
 
-	// Generate schemas section
-	lines.push('// ' + '='.repeat(75));
-	lines.push('// Validation Schemas');
-	lines.push('// ' + '='.repeat(75));
-	lines.push('');
+	// Export factory function that receives all helpers as parameters
+	lines.push(`module.exports = function getSchema({ parameters, ${helpers.join(', ')} }) {`);
 
-	// Generate schemas using the same logic as type generation
-	const schemaResult = generateSchemasForNode(
-		filteredNode,
-		nodeName,
-		versionSuffix,
-		aiInputTypes,
-		needsFactoryFunction,
-	);
-	lines.push(schemaResult.code);
+	// Generate subnode helper function if AI node with conditional fields
+	if (hasAiInputs && hasConditionalSubnodeFields(aiInputTypes)) {
+		lines.push('');
+		lines.push('\t// Helper function for conditional subnode schema');
+		lines.push('\tfunction getSubnodesSchema() {');
+		lines.push('\t\treturn z.object({');
+		for (const aiInput of aiInputTypes) {
+			const fieldInfo = AI_TYPE_TO_SCHEMA_FIELD[aiInput.type];
+			if (!fieldInfo) continue;
+
+			let schemaStr: string;
+			if (fieldInfo.isArray) {
+				schemaStr = `z.array(${fieldInfo.schemaName})`;
+			} else if (fieldInfo.canBeMultiple) {
+				schemaStr = `z.union([${fieldInfo.schemaName}, z.array(${fieldInfo.schemaName})])`;
+			} else {
+				schemaStr = fieldInfo.schemaName;
+			}
+
+			if (aiInput.displayOptions) {
+				const displayOptionsStr = JSON.stringify(aiInput.displayOptions);
+				const defaults = extractDefaultsForDisplayOptions(
+					aiInput.displayOptions,
+					filteredProperties,
+				);
+				const defaultsStr =
+					Object.keys(defaults).length > 0 ? `, defaults: ${JSON.stringify(defaults)}` : '';
+				lines.push(
+					`\t\t\t${fieldInfo.fieldName}: resolveSchema({ parameters, schema: ${schemaStr}, required: ${aiInput.required}, displayOptions: ${displayOptionsStr}${defaultsStr} }),`,
+				);
+			} else if (!aiInput.required) {
+				lines.push(`\t\t\t${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
+			} else {
+				lines.push(`\t\t\t${fieldInfo.fieldName}: ${schemaStr},`);
+			}
+		}
+		lines.push('\t\t});');
+		lines.push('\t}');
+	}
+
+	// Generate static subnode schema if AI node without conditional fields
+	if (hasAiInputs && !hasConditionalSubnodeFields(aiInputTypes)) {
+		lines.push('');
+		lines.push('\t// Static subnode schema');
+		lines.push('\tconst subnodesSchema = z.object({');
+		for (const aiInput of aiInputTypes) {
+			const fieldInfo = AI_TYPE_TO_SCHEMA_FIELD[aiInput.type];
+			if (!fieldInfo) continue;
+
+			let schemaStr: string;
+			if (fieldInfo.isArray) {
+				schemaStr = `z.array(${fieldInfo.schemaName})`;
+			} else if (fieldInfo.canBeMultiple) {
+				schemaStr = `z.union([${fieldInfo.schemaName}, z.array(${fieldInfo.schemaName})])`;
+			} else {
+				schemaStr = fieldInfo.schemaName;
+			}
+
+			if (!aiInput.required) {
+				lines.push(`\t\t${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
+			} else {
+				lines.push(`\t\t${fieldInfo.fieldName}: ${schemaStr},`);
+			}
+		}
+		lines.push('\t});');
+	}
+
+	// Generate parameters schema
+	lines.push('');
+	lines.push('\t// Parameters schema');
+	lines.push('\tconst parametersSchema = z.object({');
+
+	// Group properties by name, merging displayOptions and nested options for duplicates
+	const propsByName = mergePropertiesByName(filteredProperties);
+	const allPropsArray = Array.from(propsByName.values());
+
+	for (const prop of allPropsArray) {
+		if (prop.displayOptions) {
+			// Strip @version since it's implicit in the file path
+			const strippedDisplayOptions = stripDiscriminatorKeysFromDisplayOptions(prop.displayOptions, [
+				'@version',
+			]);
+			if (strippedDisplayOptions) {
+				const propWithStripped: NodeProperty = {
+					...prop,
+					displayOptions: strippedDisplayOptions,
+				};
+				const propLine = generateConditionalSchemaLine(propWithStripped, allPropsArray);
+				if (propLine) {
+					lines.push('\t' + propLine);
+				}
+			} else {
+				// No remaining conditions after stripping @version - use static schema
+				const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
+				if (propLine) {
+					lines.push('\t' + propLine);
+				}
+			}
+		} else {
+			const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
+			if (propLine) {
+				lines.push('\t' + propLine);
+			}
+		}
+	}
+
+	lines.push('\t});');
+
+	// Return the combined schema
+	lines.push('');
+	lines.push('\t// Return combined config schema');
+	lines.push('\treturn z.object({');
+	lines.push('\t\tparameters: parametersSchema.optional(),');
+	if (hasAiInputs) {
+		const subnodesOptional = !hasRequiredSubnodeFields(aiInputTypes);
+		if (hasConditionalSubnodeFields(aiInputTypes)) {
+			lines.push(`\t\tsubnodes: getSubnodesSchema()${subnodesOptional ? '.optional()' : ''},`);
+		} else {
+			lines.push(`\t\tsubnodes: subnodesSchema${subnodesOptional ? '.optional()' : ''},`);
+		}
+	}
+	lines.push('\t});');
+	lines.push('};');
 
 	return lines.join('\n');
 }
 
-/**
- * Generate Zod schemas for a node (handles both flat and discriminated patterns)
- *
- * Generates:
- * - ParametersSchema: validates the parameters object (static or factory)
- * - SubnodeConfigSchema: validates AI subnode configuration (if AI node)
- * - ConfigSchema: combined schema wrapping parameters + subnodes
- *
- * When useFactoryFunction is true, generates factory functions like:
- *   function getNodeNameV1ParametersSchema({ parameters, resolveSchema }) { ... }
- *   exports.getNodeNameV1ParametersSchema = getNodeNameV1ParametersSchema;
- *
- * This enables dynamic schema resolution for fields with displayOptions.
- *
- * NOTE: Generates CommonJS JavaScript, not TypeScript.
- */
-function generateSchemasForNode(
-	node: NodeTypeDescription,
-	nodeName: string,
-	versionSuffix: string,
-	aiInputTypes: AIInputTypeInfo[],
-	useFactoryFunction: boolean = false,
-): SchemaGenerationResult {
-	const combinations = extractDiscriminatorCombinations(node);
-	const lines: string[] = [];
-	const schemaInfos: SchemaInfo[] = [];
-	const hasAiInputs = aiInputTypes.length > 0;
-	const baseSchemaName = `${nodeName}${versionSuffix}`;
-
-	if (combinations.length === 0) {
-		// No discriminators - generate simple schema
-		const parametersSchemaName = `${baseSchemaName}ParametersSchema`;
-		const parametersFactoryName = `get${baseSchemaName}ParametersSchema`;
-		const configSchemaName = `${baseSchemaName}ConfigSchema`;
-		const configFactoryName = `get${baseSchemaName}ConfigSchema`;
-		const typeName = `${baseSchemaName}Config`;
-
-		if (useFactoryFunction) {
-			// Generate Parameters Schema Factory Function (CommonJS)
-			lines.push(`function ${parametersFactoryName}({ parameters, resolveSchema }) {`);
-			lines.push('\treturn z.object({');
-
-			// Group properties by name, merging displayOptions and nested options for duplicates
-			const propsByName = mergePropertiesByName(node.properties);
-
-			// Generate schema for each merged property
-			// Convert propsByName to array for extractDefaultsForDisplayOptions
-			const allPropsArray = Array.from(propsByName.values());
-			for (const prop of allPropsArray) {
-				// Use conditional schema line for properties with displayOptions
-				// Strip @version since it's implicit in the file path
-				if (prop.displayOptions) {
-					const strippedDisplayOptions = stripDiscriminatorKeysFromDisplayOptions(
-						prop.displayOptions,
-						['@version'],
-					);
-					if (strippedDisplayOptions) {
-						const propWithStripped: NodeProperty = {
-							...prop,
-							displayOptions: strippedDisplayOptions,
-						};
-						const propLine = generateConditionalSchemaLine(propWithStripped, allPropsArray);
-						if (propLine) {
-							lines.push(propLine);
-						}
-					} else {
-						// No remaining conditions after stripping @version - use static schema
-						const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
-						if (propLine) {
-							lines.push(propLine);
-						}
-					}
-				} else {
-					const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
-					if (propLine) {
-						lines.push(propLine);
-					}
-				}
-			}
-
-			lines.push('\t});');
-			lines.push('}');
-			lines.push(`exports.${parametersFactoryName} = ${parametersFactoryName};`);
-			lines.push('');
-
-			// Generate Subnode Config Schema (if AI node)
-			if (hasAiInputs) {
-				const subnodeCode = generateSubnodeConfigSchemaCode(
-					aiInputTypes,
-					baseSchemaName,
-					node.properties,
-				);
-				if (subnodeCode) {
-					lines.push(subnodeCode);
-					lines.push('');
-				}
-			}
-
-			// Generate Combined Config Schema Factory Function (CommonJS)
-			lines.push(`// Combined config schema factory (parameters + subnodes)`);
-			lines.push(`function ${configFactoryName}({ parameters, resolveSchema }) {`);
-			lines.push('\treturn z.object({');
-			lines.push(
-				`\t\tparameters: ${parametersFactoryName}({ parameters, resolveSchema }).optional(),`,
-			);
-			if (hasAiInputs) {
-				const subnodesOptional = !hasRequiredSubnodeFields(aiInputTypes);
-				const hasConditional = hasConditionalSubnodeFields(aiInputTypes);
-				if (hasConditional) {
-					// Use factory function for conditional subnode schema
-					lines.push(
-						`\t\tsubnodes: get${baseSchemaName}SubnodeConfigSchema({ parameters, resolveSchema })${subnodesOptional ? '.optional()' : ''},`,
-					);
-				} else {
-					lines.push(
-						`\t\tsubnodes: ${baseSchemaName}SubnodeConfigSchema${subnodesOptional ? '.optional()' : ''},`,
-					);
-				}
-			}
-			lines.push(`\t\t// TODO: Add other NodeConfig fields (disabled, retryOnFail, etc.)`);
-			lines.push('\t});');
-			lines.push('}');
-			lines.push(`exports.${configFactoryName} = ${configFactoryName};`);
-			lines.push('');
-			lines.push('// TODO: Add credentials schema');
-			lines.push('// TODO: Add full node schema (type, version, credentials, config)');
-		} else {
-			// Generate static Parameters Schema (CommonJS)
-			lines.push(`const ${parametersSchemaName} = z.object({`);
-
-			// Group properties by name, merging displayOptions and nested options for duplicates
-			const propsByName = mergePropertiesByName(node.properties);
-
-			for (const prop of propsByName.values()) {
-				const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
-				if (propLine) {
-					lines.push(propLine);
-				}
-			}
-
-			lines.push('});');
-			lines.push(`exports.${parametersSchemaName} = ${parametersSchemaName};`);
-			lines.push('');
-
-			// Generate Subnode Config Schema (if AI node)
-			if (hasAiInputs) {
-				const subnodeCode = generateSubnodeConfigSchemaCode(
-					aiInputTypes,
-					baseSchemaName,
-					node.properties,
-				);
-				if (subnodeCode) {
-					lines.push(subnodeCode);
-					lines.push('');
-				}
-			}
-
-			// Generate Combined Config Schema
-			// Note: Static config schema can only work with static subnode schema
-			// If AI inputs have conditional fields, we need to generate a factory function instead
-			const hasConditionalSubnodes = hasAiInputs && hasConditionalSubnodeFields(aiInputTypes);
-			if (hasConditionalSubnodes) {
-				// Generate factory function to handle conditional subnode schema (CommonJS)
-				lines.push(`// Combined config schema factory (parameters + subnodes with displayOptions)`);
-				lines.push(`function ${configFactoryName}({ parameters, resolveSchema }) {`);
-				lines.push('\treturn z.object({');
-				lines.push(`\t\tparameters: ${parametersSchemaName}.optional(),`);
-				const subnodesOptional = !hasRequiredSubnodeFields(aiInputTypes);
-				lines.push(
-					`\t\tsubnodes: get${baseSchemaName}SubnodeConfigSchema({ parameters, resolveSchema })${subnodesOptional ? '.optional()' : ''},`,
-				);
-				lines.push(`\t\t// TODO: Add other NodeConfig fields (disabled, retryOnFail, etc.)`);
-				lines.push('\t});');
-				lines.push('}');
-				lines.push(`exports.${configFactoryName} = ${configFactoryName};`);
-			} else {
-				lines.push(`// Combined config schema (parameters + subnodes)`);
-				lines.push(`const ${configSchemaName} = z.object({`);
-				lines.push(`\tparameters: ${parametersSchemaName}.optional(),`);
-				if (hasAiInputs) {
-					const subnodesOptional = !hasRequiredSubnodeFields(aiInputTypes);
-					lines.push(
-						`\tsubnodes: ${baseSchemaName}SubnodeConfigSchema${subnodesOptional ? '.optional()' : ''},`,
-					);
-				}
-				lines.push(`\t// TODO: Add other NodeConfig fields (disabled, retryOnFail, etc.)`);
-				lines.push('});');
-				lines.push(`exports.${configSchemaName} = ${configSchemaName};`);
-			}
-			lines.push('');
-			// No TypeScript type exports in CommonJS JavaScript
-			lines.push('// TODO: Add credentials schema');
-			lines.push('// TODO: Add full node schema (type, version, credentials, config)');
-		}
-
-		// Determine the correct schema name to export
-		const hasConditionalSubnodes = hasAiInputs && hasConditionalSubnodeFields(aiInputTypes);
-		const effectiveSchemaName =
-			useFactoryFunction || hasConditionalSubnodes ? configFactoryName : configSchemaName;
-
-		schemaInfos.push({
-			schemaName: effectiveSchemaName,
-			typeName,
-			discriminators: {},
-		});
-
-		return { code: lines.join('\n'), schemaInfos };
-	}
-
-	// Generate individual schemas for each combination
-	const parametersSchemaNames: string[] = [];
-	const configSchemaNames: string[] = [];
-
-	for (const combo of combinations) {
-		const comboValues = Object.entries(combo)
-			.filter(([_, v]) => v !== undefined)
-			.map(([_, v]) => toPascalCase(v!));
-		const comboSuffix = comboValues.join('');
-		const parametersSchemaName = `${baseSchemaName}${comboSuffix}ParametersSchema`;
-		const configSchemaName = `${baseSchemaName}${comboSuffix}ConfigSchema`;
-		const typeName = `${baseSchemaName}${comboSuffix}Config`;
-		parametersSchemaNames.push(parametersSchemaName);
-		configSchemaNames.push(configSchemaName);
-
-		// Track schema info (using the combined config schema name)
-		const schemaInfo: SchemaInfo = {
-			schemaName: configSchemaName,
-			typeName,
-			resource: combo.resource,
-			operation: combo.operation,
-			discriminators: {},
-		};
-		for (const [key, value] of Object.entries(combo)) {
-			if (value !== undefined) {
-				schemaInfo.discriminators[key] = value;
-			}
-		}
-		schemaInfos.push(schemaInfo);
-
-		// Get properties for this combination
-		const props = getPropertiesForCombination(node, combo);
-
-		// Generate Parameters Schema (CommonJS)
-		lines.push(`const ${parametersSchemaName} = z.object({`);
-
-		// Add discriminator fields as literals
-		for (const [key, value] of Object.entries(combo)) {
-			if (value !== undefined) {
-				lines.push(`\t${key}: z.literal('${value}'),`);
-			}
-		}
-
-		// Group properties by name, merging displayOptions and nested options for duplicates
-		const propsByName = mergePropertiesByName(props);
-
-		for (const prop of propsByName.values()) {
-			const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
-			if (propLine) {
-				lines.push(propLine);
-			}
-		}
-
-		lines.push('});');
-		lines.push(`exports.${parametersSchemaName} = ${parametersSchemaName};`);
-		lines.push('');
-
-		// Generate Combined Config Schema for this combination (CommonJS)
-		// Check if AI inputs have conditional fields
-		const hasConditionalAiInputs = hasAiInputs && hasConditionalSubnodeFields(aiInputTypes);
-		if (hasConditionalAiInputs) {
-			// Generate factory function since subnodes have conditional fields
-			const configFactoryName = `get${baseSchemaName}${comboSuffix}ConfigSchema`;
-			lines.push(`// Combined config schema factory (subnodes with displayOptions)`);
-			lines.push(`function ${configFactoryName}({ parameters, resolveSchema }) {`);
-			lines.push('\treturn z.object({');
-			lines.push(`\t\tparameters: ${parametersSchemaName}.optional(),`);
-			const subnodesOptional = !hasRequiredSubnodeFields(aiInputTypes);
-			lines.push(
-				`\t\tsubnodes: get${baseSchemaName}SubnodeConfigSchema({ parameters, resolveSchema })${subnodesOptional ? '.optional()' : ''},`,
-			);
-			lines.push(`\t\t// TODO: Add other NodeConfig fields`);
-			lines.push('\t});');
-			lines.push('}');
-			lines.push(`exports.${configFactoryName} = ${configFactoryName};`);
-		} else {
-			lines.push(`const ${configSchemaName} = z.object({`);
-			lines.push(`\tparameters: ${parametersSchemaName}.optional(),`);
-			if (hasAiInputs) {
-				const subnodesOptional = !hasRequiredSubnodeFields(aiInputTypes);
-				lines.push(
-					`\tsubnodes: ${baseSchemaName}SubnodeConfigSchema${subnodesOptional ? '.optional()' : ''},`,
-				);
-			}
-			lines.push(`\t// TODO: Add other NodeConfig fields`);
-			lines.push('});');
-			lines.push(`exports.${configSchemaName} = ${configSchemaName};`);
-		}
-		lines.push('');
-	}
-
-	// Generate Subnode Config Schema (shared across combinations if AI node)
-	if (hasAiInputs) {
-		const subnodeCode = generateSubnodeConfigSchemaCode(
-			aiInputTypes,
-			baseSchemaName,
-			node.properties,
-		);
-		if (subnodeCode) {
-			// Insert subnode schema before the combination schemas
-			const subnodeLines = [subnodeCode, ''];
-			lines.splice(0, 0, ...subnodeLines);
-		}
-	}
-
-	// Generate union schema for parameters (CommonJS)
-	const unionParametersSchemaName = `${baseSchemaName}ParametersSchema`;
-	if (parametersSchemaNames.length === 1) {
-		lines.push(`const ${unionParametersSchemaName} = ${parametersSchemaNames[0]};`);
-	} else {
-		lines.push(`const ${unionParametersSchemaName} = z.union([`);
-		for (const name of parametersSchemaNames) {
-			lines.push(`\t${name},`);
-		}
-		lines.push(']);');
-	}
-	lines.push(`exports.${unionParametersSchemaName} = ${unionParametersSchemaName};`);
-	lines.push('');
-
-	// Generate union schema for combined config (CommonJS)
-	const unionConfigSchemaName = `${baseSchemaName}ConfigSchema`;
-	if (configSchemaNames.length === 1) {
-		lines.push(`const ${unionConfigSchemaName} = ${configSchemaNames[0]};`);
-	} else {
-		lines.push(`const ${unionConfigSchemaName} = z.union([`);
-		for (const name of configSchemaNames) {
-			lines.push(`\t${name},`);
-		}
-		lines.push(']);');
-	}
-	lines.push(`exports.${unionConfigSchemaName} = ${unionConfigSchemaName};`);
-	lines.push('');
-	// No TypeScript type exports in CommonJS JavaScript
-	lines.push('// TODO: Add credentials schema');
-	lines.push('// TODO: Add full node schema (type, version, credentials, config)');
-
-	return { code: lines.join('\n'), schemaInfos };
-}
-
-/**
- * Generate the base.schema.js file that contains all Zod helper schemas
- * This is a standalone CommonJS JavaScript file that can be loaded at runtime via require()
- */
-export function generateBaseSchemaFile(): string {
-	return `/**
- * Base Zod Schema Helpers
- *
- * Common Zod schemas for n8n node configuration validation.
- * Require from this file in generated schemas.
- *
- * @generated - CommonJS JavaScript for runtime loading
- */
-
-const { z } = require('zod');
-
-// =============================================================================
-// Expression Pattern
-// =============================================================================
-
-/**
- * Pattern for n8n expressions: strings starting with ={{
- */
-const expressionPattern = /^={{.*}}$/s;
-exports.expressionPattern = expressionPattern;
-
-/**
- * Zod schema for an n8n expression string
- */
-const expressionSchema = z.string().regex(expressionPattern, 'Must be an n8n expression (={{...}})');
-exports.expressionSchema = expressionSchema;
-
-// =============================================================================
-// Primitive Type Schemas with Expression Support
-// =============================================================================
-
-/**
- * String value or n8n expression
- */
-const stringOrExpression = z.string();
-exports.stringOrExpression = stringOrExpression;
-
-/**
- * Number value or n8n expression
- */
-const numberOrExpression = z.union([
-	z.number(),
-	expressionSchema,
-]);
-exports.numberOrExpression = numberOrExpression;
-
-/**
- * Boolean value or n8n expression
- */
-const booleanOrExpression = z.union([
-	z.boolean(),
-	expressionSchema,
-]);
-exports.booleanOrExpression = booleanOrExpression;
-
-// =============================================================================
-// Complex Type Schemas
-// =============================================================================
-
-/**
- * Resource Locator Value schema (object format)
- */
-const resourceLocatorObjectSchema = z.object({
-	__rl: z.literal(true),
-	mode: z.string(),
-	value: z.union([z.string(), z.number()]),
-	cachedResultName: z.string().optional(),
-	cachedResultUrl: z.string().optional(),
-});
-
-/**
- * Resource Locator Value schema - accepts object format OR expression
- */
-const resourceLocatorValueSchema = z.union([resourceLocatorObjectSchema, expressionSchema]);
-exports.resourceLocatorValueSchema = resourceLocatorValueSchema;
-
-/**
- * Resource Mapper Value schema (object format)
- * Used for mapping input data to columns/fields
- */
-const resourceMapperObjectSchema = z.object({
-	mappingMode: z.string(),
-	value: z.unknown().optional(),
-	schema: z.array(z.unknown()).optional(),
-	cachedResultName: z.string().optional(),
-}).passthrough();
-
-/**
- * Resource Mapper Value schema - accepts object format OR expression
- */
-const resourceMapperValueSchema = z.union([resourceMapperObjectSchema, expressionSchema]);
-exports.resourceMapperValueSchema = resourceMapperValueSchema;
-
-/**
- * Filter condition operator schema
- */
-const filterOperatorSchema = z.object({
-	type: z.string(),
-	operation: z.string(),
-	singleValue: z.boolean().optional(),
-});
-exports.filterOperatorSchema = filterOperatorSchema;
-
-/**
- * Filter condition schema
- */
-const filterConditionSchema = z.object({
-	id: z.string().optional(),
-	leftValue: z.unknown(),
-	operator: filterOperatorSchema,
-	rightValue: z.unknown().optional(),
-});
-exports.filterConditionSchema = filterConditionSchema;
-
-/**
- * Filter Value schema
- */
-const filterValueSchema = z.object({
-	conditions: z.array(filterConditionSchema),
-	combinator: z.enum(['and', 'or']).optional(),
-});
-exports.filterValueSchema = filterValueSchema;
-
-/**
- * Assignment schema
- */
-const assignmentSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	value: z.unknown(),
-	type: z.string().optional(),
-});
-exports.assignmentSchema = assignmentSchema;
-
-/**
- * Assignment Collection Value schema
- */
-const assignmentCollectionValueSchema = z.object({
-	assignments: z.array(assignmentSchema),
-});
-exports.assignmentCollectionValueSchema = assignmentCollectionValueSchema;
-
-/**
- * IDataObject schema - generic data object
- */
-const iDataObjectSchema = z.record(
-	z.string(),
-	z.unknown(),
-);
-exports.iDataObjectSchema = iDataObjectSchema;
-
-// =============================================================================
-// Subnode Instance Schemas
-// =============================================================================
-
-/**
- * Base schema for a subnode instance.
- * Used for AI subnodes like language models, tools, memory, etc.
- */
-const subnodeInstanceBaseSchema = z.object({
-	type: z.string(),
-	version: z.number(),
-	config: z.record(z.string(), z.unknown()).optional(),
-});
-exports.subnodeInstanceBaseSchema = subnodeInstanceBaseSchema;
-
-/**
- * Language Model subnode instance (ai_languageModel)
- */
-const languageModelInstanceSchema = subnodeInstanceBaseSchema;
-exports.languageModelInstanceSchema = languageModelInstanceSchema;
-
-/**
- * Memory subnode instance (ai_memory)
- */
-const memoryInstanceSchema = subnodeInstanceBaseSchema;
-exports.memoryInstanceSchema = memoryInstanceSchema;
-
-/**
- * Tool subnode instance (ai_tool)
- */
-const toolInstanceSchema = subnodeInstanceBaseSchema;
-exports.toolInstanceSchema = toolInstanceSchema;
-
-/**
- * Output Parser subnode instance (ai_outputParser)
- */
-const outputParserInstanceSchema = subnodeInstanceBaseSchema;
-exports.outputParserInstanceSchema = outputParserInstanceSchema;
-
-/**
- * Embedding subnode instance (ai_embedding)
- */
-const embeddingInstanceSchema = subnodeInstanceBaseSchema;
-exports.embeddingInstanceSchema = embeddingInstanceSchema;
-
-/**
- * Vector Store subnode instance (ai_vectorStore)
- */
-const vectorStoreInstanceSchema = subnodeInstanceBaseSchema;
-exports.vectorStoreInstanceSchema = vectorStoreInstanceSchema;
-
-/**
- * Retriever subnode instance (ai_retriever)
- */
-const retrieverInstanceSchema = subnodeInstanceBaseSchema;
-exports.retrieverInstanceSchema = retrieverInstanceSchema;
-
-/**
- * Document Loader subnode instance (ai_document)
- */
-const documentLoaderInstanceSchema = subnodeInstanceBaseSchema;
-exports.documentLoaderInstanceSchema = documentLoaderInstanceSchema;
-
-/**
- * Text Splitter subnode instance (ai_textSplitter)
- */
-const textSplitterInstanceSchema = subnodeInstanceBaseSchema;
-exports.textSplitterInstanceSchema = textSplitterInstanceSchema;
-
-/**
- * Reranker subnode instance (ai_reranker)
- */
-const rerankerInstanceSchema = subnodeInstanceBaseSchema;
-exports.rerankerInstanceSchema = rerankerInstanceSchema;
-
-// =============================================================================
-// Dynamic Schema Resolution (for displayOptions support)
-// =============================================================================
-
-/**
- * Check if value is a display condition object
- */
-function isDisplayCondition(value) {
-	return (
-		value !== null &&
-		typeof value === 'object' &&
-		'_cnd' in value &&
-		Object.keys(value).length === 1
-	);
-}
-
-/**
- * Check if a property path contains regex metacharacters (for OR matching).
- * Regex paths use | for alternation, e.g., '/guardrails.(jailbreak|nsfw|custom)'
- */
-function isRegexPath(path) {
-	return path.includes('|') || path.includes('(');
-}
-
-/**
- * Get all dot-separated paths from an object recursively.
- * E.g., { guardrails: { jailbreak: { value: 1 } } } => ['guardrails', 'guardrails.jailbreak', 'guardrails.jailbreak.value']
- */
-function getAllPaths(obj, prefix) {
-	if (prefix === undefined) prefix = '';
-	if (obj === null || obj === undefined || typeof obj !== 'object') {
-		return prefix ? [prefix] : [];
-	}
-	const paths = [];
-	if (prefix) paths.push(prefix);
-	for (const key of Object.keys(obj)) {
-		const newPrefix = prefix ? prefix + '.' + key : key;
-		paths.push(...getAllPaths(obj[key], newPrefix));
-	}
-	return paths;
-}
-
-/**
- * Find all property paths that match a regex pattern.
- * Returns the values at those paths.
- */
-function getMatchingPathValues(context, regexPath) {
-	const rootParams = context.rootParameters ?? context.parameters;
-	// Remove leading / for root paths
-	const pattern = regexPath.startsWith('/') ? regexPath.slice(1) : regexPath;
-
-	// Convert the path pattern to a regex (escape dots, keep | and () for alternation)
-	// Pattern like 'guardrails.(jailbreak|nsfw)' becomes regex /^guardrails\\.(jailbreak|nsfw)$/
-	const regexPattern = '^' + pattern.replace(/\\./g, '\\\\.').replace(/\\\\\\.\\(/g, '\\.(') + '$';
-	const regex = new RegExp(regexPattern);
-
-	const allPaths = getAllPaths(rootParams);
-	const matchingValues = [];
-
-	for (const path of allPaths) {
-		if (regex.test(path)) {
-			const value = get(rootParams, path);
-			if (value !== undefined) {
-				matchingValues.push(Array.isArray(value) ? value : [value]);
-			}
-		}
-	}
-
-	return matchingValues;
-}
-
-function isEqual(a, b) {
-	if (a === b) return true;
-	if (typeof a !== typeof b) return false;
-	if (typeof a !== 'object' || a === null || b === null) return false;
-	const keysA = Object.keys(a);
-	const keysB = Object.keys(b);
-	if (keysA.length !== keysB.length) return false;
-	for (const key of keysA) {
-		if (!isEqual(a[key], b[key])) {
-			return false;
-		}
-	}
-	return true;
-}
-
-function get(obj, path) {
-	const parts = path.split('.');
-	let current = obj;
-	for (const part of parts) {
-		if (current === null || current === undefined) return undefined;
-		current = current[part];
-	}
-	return current;
-}
-
-/**
- * Check if conditions are met against actual values.
- * Supports simple value inclusion and _cnd operators (eq, not, gte, lte, gt, lt, between, includes, startsWith, endsWith, regex, exists).
- */
-function checkConditions(conditions, actualValues) {
-	return conditions.some((condition) => {
-		if (isDisplayCondition(condition)) {
-			const [key, targetValue] = Object.entries(condition._cnd)[0];
-
-			if (actualValues.length === 0) {
-				if (key === 'not') return true;
-				return false;
-			}
-
-			return actualValues.every((propertyValue) => {
-				if (key === 'eq') return isEqual(propertyValue, targetValue);
-				if (key === 'not') return !isEqual(propertyValue, targetValue);
-				if (key === 'gte') return propertyValue >= targetValue;
-				if (key === 'lte') return propertyValue <= targetValue;
-				if (key === 'gt') return propertyValue > targetValue;
-				if (key === 'lt') return propertyValue < targetValue;
-				if (key === 'between') {
-					const { from, to } = targetValue;
-					return propertyValue >= from && propertyValue <= to;
-				}
-				if (key === 'includes') return propertyValue.includes(targetValue);
-				if (key === 'startsWith') return propertyValue.startsWith(targetValue);
-				if (key === 'endsWith') return propertyValue.endsWith(targetValue);
-				if (key === 'regex') return new RegExp(targetValue).test(propertyValue);
-				if (key === 'exists') return propertyValue !== null && propertyValue !== undefined && propertyValue !== '';
-				return false;
-			});
-		}
-		return actualValues.includes(condition);
-	});
-}
-exports.checkConditions = checkConditions;
-
-/**
- * Get property values from context for a given property name.
- * Handles root paths (/ prefix), @version meta-property, resource locator unwrapping, and defaults.
- */
-function getPropertyValue(context, propertyName) {
-	let value;
-
-	if (propertyName.charAt(0) === '/') {
-		const rootParams = context.rootParameters ?? context.parameters;
-		value = get(rootParams, propertyName.slice(1));
-		// Fall back to defaults for root paths as well
-		if (value === undefined && context.defaults) {
-			value = get(context.defaults, propertyName.slice(1));
-		}
-	} else if (propertyName === '@version') {
-		value = context.nodeVersion ?? 0;
-	} else {
-		value = get(context.parameters, propertyName);
-		// Fall back to default value if property is not set
-		if (value === undefined && context.defaults) {
-			value = get(context.defaults, propertyName);
-		}
-	}
-
-	if (value && typeof value === 'object' && '__rl' in value && value.__rl) {
-		value = value.value;
-	}
-
-	if (!Array.isArray(value)) {
-		return [value];
-	}
-	return value;
-}
-exports.getPropertyValue = getPropertyValue;
-
-/**
- * Check if a field should be visible based on displayOptions and current context.
- * Supports _cnd operators, root paths, @version, regex paths (for OR matching), and expression detection.
- *
- * Regex paths use | for alternation, e.g., '/guardrails.(jailbreak|nsfw|custom)'
- * means "show if ANY of guardrails.jailbreak, guardrails.nsfw, or guardrails.custom matches".
- */
-function matchesDisplayOptions(context, displayOptions) {
-	const { show, hide } = displayOptions;
-
-	if (show) {
-		for (const propertyName of Object.keys(show)) {
-			const conditions = show[propertyName];
-
-			// Handle regex paths - check if ANY matching path satisfies the conditions
-			if (isRegexPath(propertyName)) {
-				const matchingPathValues = getMatchingPathValues(context, propertyName);
-
-				// If no paths match the pattern, the condition fails
-				if (matchingPathValues.length === 0) {
-					return false;
-				}
-
-				// Check if ANY of the matching paths satisfies the conditions
-				const anyMatch = matchingPathValues.some((values) => {
-					if (values.some((v) => typeof v === 'string' && v.charAt(0) === '=')) {
-						return true; // Expression - treat as matching
-					}
-					return checkConditions(conditions, values);
-				});
-
-				if (!anyMatch) {
-					return false;
-				}
-				continue;
-			}
-
-			// Regular path handling
-			const values = getPropertyValue(context, propertyName);
-			if (values.some((v) => typeof v === 'string' && v.charAt(0) === '=')) {
-				continue; // Expression - treat as matching
-			}
-			if (!checkConditions(conditions, values)) {
-				return false;
-			}
-		}
-	}
-
-	if (hide) {
-		for (const propertyName of Object.keys(hide)) {
-			const values = getPropertyValue(context, propertyName);
-			if (values.length !== 0 && checkConditions(hide[propertyName], values)) {
-				return false;
-			}
-		}
-	}
-
-	return true;
-}
-exports.matchesDisplayOptions = matchesDisplayOptions;
-
-/**
- * Resolve a schema dynamically based on displayOptions and current parameter values.
- *
- * When field is visible (displayOptions match):
- *   - Returns required schema if required=true
- *   - Returns optional schema if required=false
- *
- * When field is not visible (displayOptions don't match):
- *   - Returns z.undefined() to reject any non-undefined value
- */
-function resolveSchema({
-	parameters,
-	schema,
-	required,
-	displayOptions,
-	nodeVersion,
-	rootParameters,
-	defaults,
-}) {
-	if (defaults === undefined) defaults = {};
-	const context = { parameters, nodeVersion, rootParameters, defaults };
-	const isVisible = matchesDisplayOptions(context, displayOptions);
-
-	if (isVisible) {
-		return required ? schema : schema.optional();
-	} else {
-		return z.undefined();
-	}
-}
-exports.resolveSchema = resolveSchema;
-`;
-}
+// generateBaseSchemaFile has been removed - helpers are now passed as parameters
+// to schema factory functions from schema-validator.ts via schema-helpers.ts
+// See schema-helpers.ts for the TypeScript implementations of these helpers.
 
 /**
  * Generate schema index file content for a node directory
@@ -1956,21 +1202,10 @@ export function generateDiscriminatorSchemaFile(
 	version: number,
 	combo: DiscriminatorCombination,
 	props: NodeProperty[],
-	importDepth: number,
+	_importDepth: number,
 	aiInputTypes: AIInputTypeInfo[] = [],
 ): string {
 	const hasAiInputs = aiInputTypes.length > 0;
-	const prefix = getPackagePrefix(node.name);
-	const nodeName = prefix + toPascalCase(getNodeBaseName(node.name));
-	const versionSuffix = versionToTypeName(version);
-	const baseSchemaName = `${nodeName}${versionSuffix}`;
-
-	// Build combo suffix for schema naming
-	const comboValues = Object.entries(combo)
-		.filter(([_, v]) => v !== undefined)
-		.map(([_, v]) => toPascalCase(v!));
-	const comboSuffix = comboValues.join('');
-	const comboSchemaName = `${baseSchemaName}${comboSuffix}`;
 
 	// Get discriminator keys to strip from displayOptions
 	// Always include @version since it's implicit in the file path
@@ -1989,6 +1224,9 @@ export function generateDiscriminatorSchemaFile(
 		return stripped !== undefined;
 	});
 
+	// Check if AI inputs have conditional fields (displayOptions)
+	const hasConditionalAiInputs = hasAiInputs && hasConditionalSubnodeFields(aiInputTypes);
+
 	const lines: string[] = [];
 
 	// Build description from discriminator values
@@ -1997,26 +1235,9 @@ export function generateDiscriminatorSchemaFile(
 		.map(([k, v]) => `${k}=${v}`)
 		.join(', ');
 
-	// Header
-	lines.push('/**');
-	lines.push(` * ${node.displayName} Node - Version ${version} - Zod Schema`);
-	lines.push(` * Discriminator: ${comboDesc}`);
-	lines.push(' *');
-	lines.push(' * Use .parse() for strict validation or .safeParse() for error handling.');
-	lines.push(' *');
-	lines.push(' * @generated - CommonJS JavaScript for runtime loading');
-	lines.push(' */');
-	lines.push('');
-
-	// Check if AI inputs have conditional fields (displayOptions)
-	const hasConditionalAiInputs = hasAiInputs && hasConditionalSubnodeFields(aiInputTypes);
-
-	// Imports - CommonJS require syntax, relative path to base.schema.js
-	const basePath = '../'.repeat(importDepth) + 'base.schema';
-	lines.push("const { z } = require('zod');");
-
-	// Build list of base schema imports
-	const baseImports = [
+	// Build list of helpers that will be destructured from factory parameters
+	const helpers = [
+		'z',
 		'expressionSchema',
 		'stringOrExpression',
 		'numberOrExpression',
@@ -2030,40 +1251,100 @@ export function generateDiscriminatorSchemaFile(
 
 	// Add resolveSchema if properties have displayOptions OR AI inputs have displayOptions
 	if (hasRemainingDisplayOptions || hasConditionalAiInputs) {
-		baseImports.push('resolveSchema');
+		helpers.push('resolveSchema');
 	}
 
 	// Add subnode schema imports if this combo has AI inputs
 	if (hasAiInputs) {
 		const subnodeImports = getSubnodeSchemaImports(aiInputTypes);
 		for (const schemaImport of subnodeImports) {
-			baseImports.push(schemaImport);
+			helpers.push(schemaImport);
 		}
 	}
 
-	lines.push(`const { ${baseImports.join(', ')} } = require('${basePath}');`);
+	// Header
+	lines.push('/**');
+	lines.push(` * ${node.displayName} Node - Version ${version} - Zod Schema`);
+	lines.push(` * Discriminator: ${comboDesc}`);
+	lines.push(' *');
+	lines.push(' * Use .parse() for strict validation or .safeParse() for error handling.');
+	lines.push(' *');
+	lines.push(' * Schema helpers (z, expressionSchema, etc.) are passed as parameters');
+	lines.push(' * by the schema-validator, not imported from external files.');
+	lines.push(' *');
+	lines.push(' * @generated - CommonJS JavaScript for runtime loading');
+	lines.push(' */');
 	lines.push('');
 
-	// Generate combo-specific Subnode Config Schema if AI node
-	if (hasAiInputs) {
-		lines.push('// ' + '='.repeat(75));
-		lines.push('// Subnode Configuration Schema');
-		lines.push('// ' + '='.repeat(75));
+	// Export factory function that receives all helpers as parameters
+	lines.push(`module.exports = function getSchema({ parameters, ${helpers.join(', ')} }) {`);
+
+	// Generate subnode helper function if AI node with conditional fields
+	if (hasConditionalAiInputs) {
 		lines.push('');
-		const subnodeCode = generateSubnodeConfigSchemaCode(aiInputTypes, comboSchemaName, props);
-		if (subnodeCode) {
-			lines.push(subnodeCode);
-			lines.push('');
+		lines.push('\t// Helper function for conditional subnode schema');
+		lines.push('\tfunction getSubnodesSchema() {');
+		lines.push('\t\treturn z.object({');
+		for (const aiInput of aiInputTypes) {
+			const fieldInfo = AI_TYPE_TO_SCHEMA_FIELD[aiInput.type];
+			if (!fieldInfo) continue;
+
+			let schemaStr: string;
+			if (fieldInfo.isArray) {
+				schemaStr = `z.array(${fieldInfo.schemaName})`;
+			} else if (fieldInfo.canBeMultiple) {
+				schemaStr = `z.union([${fieldInfo.schemaName}, z.array(${fieldInfo.schemaName})])`;
+			} else {
+				schemaStr = fieldInfo.schemaName;
+			}
+
+			if (aiInput.displayOptions) {
+				const displayOptionsStr = JSON.stringify(aiInput.displayOptions);
+				const defaults = extractDefaultsForDisplayOptions(aiInput.displayOptions, props);
+				const defaultsStr =
+					Object.keys(defaults).length > 0 ? `, defaults: ${JSON.stringify(defaults)}` : '';
+				lines.push(
+					`\t\t\t${fieldInfo.fieldName}: resolveSchema({ parameters, schema: ${schemaStr}, required: ${aiInput.required}, displayOptions: ${displayOptionsStr}${defaultsStr} }),`,
+				);
+			} else if (!aiInput.required) {
+				lines.push(`\t\t\t${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
+			} else {
+				lines.push(`\t\t\t${fieldInfo.fieldName}: ${schemaStr},`);
+			}
 		}
+		lines.push('\t\t});');
+		lines.push('\t}');
 	}
 
-	// Schema definition - CommonJS module.exports for default factory function
-	lines.push('// ' + '='.repeat(75));
-	lines.push('// Validation Schema');
-	lines.push('// ' + '='.repeat(75));
-	lines.push('');
+	// Generate static subnode schema if AI node without conditional fields
+	if (hasAiInputs && !hasConditionalAiInputs) {
+		lines.push('');
+		lines.push('\t// Static subnode schema');
+		lines.push('\tconst subnodesSchema = z.object({');
+		for (const aiInput of aiInputTypes) {
+			const fieldInfo = AI_TYPE_TO_SCHEMA_FIELD[aiInput.type];
+			if (!fieldInfo) continue;
 
-	lines.push(`module.exports = function getSchema({ parameters, resolveSchema }) {`);
+			let schemaStr: string;
+			if (fieldInfo.isArray) {
+				schemaStr = `z.array(${fieldInfo.schemaName})`;
+			} else if (fieldInfo.canBeMultiple) {
+				schemaStr = `z.union([${fieldInfo.schemaName}, z.array(${fieldInfo.schemaName})])`;
+			} else {
+				schemaStr = fieldInfo.schemaName;
+			}
+
+			if (!aiInput.required) {
+				lines.push(`\t\t${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
+			} else {
+				lines.push(`\t\t${fieldInfo.fieldName}: ${schemaStr},`);
+			}
+		}
+		lines.push('\t});');
+	}
+
+	// Return the schema
+	lines.push('');
 	lines.push('\treturn z.object({');
 	lines.push('\t\tparameters: z.object({');
 
@@ -2124,19 +1405,14 @@ export function generateDiscriminatorSchemaFile(
 	if (hasAiInputs) {
 		const subnodesOptional = !hasRequiredSubnodeFields(aiInputTypes);
 		if (hasConditionalAiInputs) {
-			// Use factory function for conditional subnode schema
-			lines.push(
-				`\t\tsubnodes: get${comboSchemaName}SubnodeConfigSchema({ parameters, resolveSchema })${subnodesOptional ? '.optional()' : ''},`,
-			);
+			lines.push(`\t\tsubnodes: getSubnodesSchema()${subnodesOptional ? '.optional()' : ''},`);
 		} else {
-			lines.push(
-				`\t\tsubnodes: ${comboSchemaName}SubnodeConfigSchema${subnodesOptional ? '.optional()' : ''},`,
-			);
+			lines.push(`\t\tsubnodes: subnodesSchema${subnodesOptional ? '.optional()' : ''},`);
 		}
 	}
 
 	lines.push('\t});');
-	lines.push('}');
+	lines.push('};');
 
 	return lines.join('\n');
 }
@@ -2164,12 +1440,12 @@ export function generateResourceIndexSchemaFile(
 	lines.push(` * ${node.displayName} - ${toPascalCase(resource)} Resource - Zod Schema Factory`);
 	lines.push(' * Exports a factory that unions all operation schemas for this resource.');
 	lines.push(' *');
+	lines.push(' * Schema helpers (z, expressionSchema, etc.) are passed as parameters');
+	lines.push(' * by the schema-validator, not imported from external files.');
+	lines.push(' *');
 	lines.push(' * @generated - CommonJS JavaScript for runtime loading');
 	lines.push(' */');
 	lines.push('');
-
-	// CommonJS require syntax
-	lines.push("const { z } = require('zod');");
 
 	// Require default exports from operation schema files
 	for (const op of operations.sort()) {
@@ -2183,8 +1459,9 @@ export function generateResourceIndexSchemaFile(
 	const operationProp = node.properties.find((p) => p.name === 'operation');
 	const operationDefault = operationProp?.default;
 
-	// Export factory function via module.exports
-	lines.push(`module.exports = function getSchema({ parameters, resolveSchema }) {`);
+	// Export factory function via module.exports - receives all helpers and passes them through
+	lines.push(`module.exports = function getSchema(helpers) {`);
+	lines.push(`\tconst { parameters, z } = helpers;`);
 
 	// Apply operation default if operation is missing from parameters
 	if (operationDefault !== undefined) {
@@ -2199,15 +1476,17 @@ export function generateResourceIndexSchemaFile(
 	}
 
 	const paramsVar = operationDefault !== undefined ? 'effectiveParams' : 'parameters';
+	const helpersArg =
+		operationDefault !== undefined ? `{ ...helpers, parameters: ${paramsVar} }` : 'helpers';
 
 	if (operations.length === 1) {
 		const importName = `get${toPascalCase(operations[0])}Schema`;
-		lines.push(`\treturn ${importName}({ parameters: ${paramsVar}, resolveSchema });`);
+		lines.push(`\treturn ${importName}(${helpersArg});`);
 	} else {
 		lines.push('\treturn z.union([');
 		for (const op of operations.sort()) {
 			const importName = `get${toPascalCase(op)}Schema`;
-			lines.push(`\t\t${importName}({ parameters: ${paramsVar}, resolveSchema }),`);
+			lines.push(`\t\t${importName}(${helpersArg}),`);
 		}
 		lines.push('\t]);');
 	}
@@ -2238,12 +1517,12 @@ export function generateSplitVersionIndexSchemaFile(
 	lines.push(` * ${node.displayName} Node - Version ${version} - Zod Schema Factory`);
 	lines.push(' * Exports a factory that unions all discriminator schemas.');
 	lines.push(' *');
+	lines.push(' * Schema helpers (z, expressionSchema, etc.) are passed as parameters');
+	lines.push(' * by the schema-validator, not imported from external files.');
+	lines.push(' *');
 	lines.push(' * @generated - CommonJS JavaScript for runtime loading');
 	lines.push(' */');
 	lines.push('');
-
-	// CommonJS require syntax
-	lines.push("const { z } = require('zod');");
 
 	// Require default exports from child schemas
 	const importNames: string[] = [];
@@ -2277,8 +1556,9 @@ export function generateSplitVersionIndexSchemaFile(
 	}
 	lines.push('');
 
-	// Export factory function via module.exports
-	lines.push(`module.exports = function getSchema({ parameters, resolveSchema }) {`);
+	// Export factory function via module.exports - receives all helpers and passes them through
+	lines.push(`module.exports = function getSchema(helpers) {`);
+	lines.push(`\tconst { parameters, z } = helpers;`);
 
 	// Apply discriminator default if discriminator is missing from parameters
 	if (discriminatorDefault) {
@@ -2293,13 +1573,14 @@ export function generateSplitVersionIndexSchemaFile(
 	}
 
 	const paramsVar = discriminatorDefault ? 'effectiveParams' : 'parameters';
+	const helpersArg = discriminatorDefault ? `{ ...helpers, parameters: ${paramsVar} }` : 'helpers';
 
 	if (importNames.length === 1) {
-		lines.push(`\treturn ${importNames[0]}({ parameters: ${paramsVar}, resolveSchema });`);
+		lines.push(`\treturn ${importNames[0]}(${helpersArg});`);
 	} else if (importNames.length > 1) {
 		lines.push('\treturn z.union([');
 		for (const importName of importNames) {
-			lines.push(`\t\t${importName}({ parameters: ${paramsVar}, resolveSchema }),`);
+			lines.push(`\t\t${importName}(${helpersArg}),`);
 		}
 		lines.push('\t]);');
 	} else {

@@ -3324,13 +3324,16 @@ describe('generate-types', () => {
 				// Should have version schema index file
 				expect(plan.has('index.schema.js')).toBe(true);
 
-				// Operation schema files should use CommonJS require and export module.exports
+				// Operation schema files should export factory function that receives helpers as parameters
 				const ticketGetSchemaContent = plan.get('resource_ticket/operation_get.schema.js');
-				expect(ticketGetSchemaContent).toContain("const { z } = require('zod')");
-				expect(ticketGetSchemaContent).toContain("require('../../../../../base.schema')");
+				// Helpers come from parameters, not require()
+				expect(ticketGetSchemaContent).toContain(
+					'module.exports = function getSchema({ parameters, z,',
+				);
+				expect(ticketGetSchemaContent).not.toContain("require('zod')");
+				expect(ticketGetSchemaContent).not.toContain('base.schema');
 				expect(ticketGetSchemaContent).toContain("resource: z.literal('ticket')");
 				expect(ticketGetSchemaContent).toContain("operation: z.literal('get')");
-				expect(ticketGetSchemaContent).toContain('module.exports = function getSchema');
 			});
 
 			it('should generate schema files alongside type files for single discriminator (mode)', () => {
@@ -3343,12 +3346,13 @@ describe('generate-types', () => {
 				// Should have version schema index file
 				expect(plan.has('index.schema.js')).toBe(true);
 
-				// Mode schema files should use CommonJS require and export module.exports
+				// Mode schema files should export factory function that receives helpers as parameters
 				const modeSchemaContent = plan.get('mode_run_once_for_all_items.schema.js');
-				expect(modeSchemaContent).toContain("const { z } = require('zod')");
-				expect(modeSchemaContent).toContain("require('../../../../base.schema')");
+				// Helpers come from parameters, not require()
+				expect(modeSchemaContent).toContain('module.exports = function getSchema({ parameters, z,');
+				expect(modeSchemaContent).not.toContain("require('zod')");
+				expect(modeSchemaContent).not.toContain('base.schema');
 				expect(modeSchemaContent).toContain("mode: z.literal('runOnceForAllItems')");
-				expect(modeSchemaContent).toContain('module.exports = function getSchema');
 			});
 
 			it('should generate schema index files with factory functions', () => {

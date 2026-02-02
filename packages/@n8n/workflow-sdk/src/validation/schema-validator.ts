@@ -9,20 +9,18 @@ import type { ZodSchema, ZodIssue } from 'zod';
 import * as os from 'os';
 import * as path from 'path';
 
-// Import resolveSchema for factory function support
-import { resolveSchema } from './resolve-schema';
+// Import all schema helpers for factory function support
+import * as schemaHelpers from './schema-helpers';
 
 // Default path to generated schemas
 const DEFAULT_SCHEMA_BASE_PATH = path.join(os.homedir(), '.n8n', 'generated-types');
 let schemaBasePath = DEFAULT_SCHEMA_BASE_PATH;
 
 // Cache for loaded schemas (either ZodSchema or factory function)
+// Factory functions receive all schema helpers as parameters
 type SchemaOrFactory =
 	| ZodSchema
-	| ((args: {
-			parameters: Record<string, unknown>;
-			resolveSchema: typeof resolveSchema;
-	  }) => ZodSchema);
+	| ((args: typeof schemaHelpers & { parameters: Record<string, unknown> }) => ZodSchema);
 const schemaCache = new Map<string, SchemaOrFactory | null>();
 
 /**
@@ -600,12 +598,14 @@ export function validateNodeConfig(
 		// Static schema - use directly
 		schema = schemaOrFactory;
 	} else {
-		// Factory function - call it with parameters to get the schema
+		// Factory function - call it with parameters and all schema helpers
 		const parameters = (config.parameters ?? {}) as Record<string, unknown>;
 		const isToolNode = options?.isToolNode ?? false;
 		schema = schemaOrFactory({
+			...schemaHelpers,
 			parameters,
-			resolveSchema: (cfg) => resolveSchema({ ...cfg, isToolNode }),
+			// Override resolveSchema to inject isToolNode
+			resolveSchema: (cfg) => schemaHelpers.resolveSchema({ ...cfg, isToolNode }),
 		});
 	}
 

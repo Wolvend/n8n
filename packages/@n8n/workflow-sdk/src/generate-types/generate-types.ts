@@ -24,7 +24,6 @@ import * as path from 'path';
 
 import {
 	generateSingleVersionSchemaFile,
-	generateBaseSchemaFile,
 	planSplitVersionSchemaFiles,
 } from './generate-zod-schemas';
 import { generateOutputSchemaJson } from './generate-output-schemas';
@@ -3870,10 +3869,8 @@ export async function generateTypes(): Promise<void> {
 	await fs.promises.mkdir(nodesBaseDir, { recursive: true });
 	await fs.promises.mkdir(nodesLangchainDir, { recursive: true });
 
-	// Generate base.schema.js with common Zod helpers (CommonJS JavaScript for runtime loading)
-	const baseSchemaContent = generateBaseSchemaFile();
-	await fs.promises.writeFile(path.join(OUTPUT_PATH, 'base.schema.js'), baseSchemaContent);
-	console.log('Generated base.schema.js with Zod helpers');
+	// Note: base.schema.js is no longer generated - schema helpers are now passed as parameters
+	// to factory functions from schema-validator.ts via schema-helpers.ts
 
 	const allNodes: NodeTypeDescription[] = [];
 

@@ -647,9 +647,9 @@ describe('generateDiscriminatorSchemaFile with displayOptions', () => {
 			[],
 		);
 
-		// CommonJS module.exports for factory function
-		expect(code).toContain('module.exports = function getSchema');
-		expect(code).toContain('{ parameters, resolveSchema }');
+		// CommonJS module.exports for factory function with all helpers as parameters
+		expect(code).toContain('module.exports = function getSchema({ parameters, z,');
+		expect(code).toContain('resolveSchema }');
 		expect(code).toContain('return z.object({');
 	});
 
@@ -788,9 +788,9 @@ describe('generateSingleVersionSchemaFile', () => {
 
 		const code = generateSingleVersionSchemaFile(node, 1);
 
-		// Should generate a factory function instead of static schema (CommonJS)
-		expect(code).toContain('function get');
-		expect(code).toContain('{ parameters, resolveSchema }');
+		// Should generate a factory function with all helpers as parameters (CommonJS)
+		expect(code).toContain('module.exports = function getSchema({ parameters, z,');
+		expect(code).toContain('resolveSchema }');
 		expect(code).toContain('return z.object({');
 	});
 
@@ -808,10 +808,9 @@ describe('generateSingleVersionSchemaFile', () => {
 
 		const code = generateSingleVersionSchemaFile(node, 1);
 
-		// Should generate static schema (const, not function) with CommonJS export
-		expect(code).toContain('const ');
-		expect(code).toContain('exports.');
-		expect(code).not.toContain('function get');
+		// Should generate factory function - CommonJS format with helpers from parameters
+		expect(code).toContain('module.exports = function getSchema({ parameters, z,');
+		expect(code).toContain('const parametersSchema = z.object({');
 	});
 
 	it('imports resolveSchema helper when generating factory function', () => {
@@ -885,12 +884,12 @@ describe('generateSingleVersionSchemaFile', () => {
 
 		const code = generateSingleVersionSchemaFile(node, 1);
 
-		// Should generate static schema (no factory function needed since @version is stripped) - CommonJS
-		expect(code).toContain('const ');
-		expect(code).toContain('exports.');
-		expect(code).not.toContain('function get');
+		// Should generate factory function - CommonJS format with helpers from parameters
+		expect(code).toContain('module.exports = function getSchema({ parameters, z,');
 		// Should NOT contain @version anywhere
 		expect(code).not.toContain('@version');
+		// Should NOT need resolveSchema since @version displayOptions are stripped
+		expect(code).not.toContain('resolveSchema');
 	});
 
 	it('generates static schema for multi-version node where @version is the only displayOption', () => {
@@ -939,13 +938,11 @@ describe('generateSingleVersionSchemaFile', () => {
 
 		const code = generateSingleVersionSchemaFile(node, 1);
 
-		// Should generate static schema (no factory function needed since @version is stripped) - CommonJS
-		expect(code).toContain('const ');
-		expect(code).toContain('exports.');
-		expect(code).not.toContain('function get');
+		// Should generate factory function - CommonJS format with helpers from parameters
+		expect(code).toContain('module.exports = function getSchema({ parameters, z,');
 		// Should NOT contain @version anywhere
 		expect(code).not.toContain('@version');
-		// Should NOT require resolveSchema
+		// Should NOT need resolveSchema since @version displayOptions are stripped
 		expect(code).not.toContain('resolveSchema');
 	});
 });

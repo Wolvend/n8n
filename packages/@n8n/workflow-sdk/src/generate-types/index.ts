@@ -66,7 +66,6 @@ export {
 	generateSchemaPropertyLine,
 	// File generation (flat versions)
 	generateSingleVersionSchemaFile,
-	generateBaseSchemaFile,
 	generateSchemaIndexFile,
 	// File generation (split versions with discriminators)
 	generateDiscriminatorSchemaFile,
