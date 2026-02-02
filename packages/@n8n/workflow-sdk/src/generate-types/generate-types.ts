@@ -33,6 +33,9 @@ import { checkConditions } from '../validation/display-options';
 // Configuration
 // =============================================================================
 
+/** Indentation string for generated code (2 spaces per level) */
+const INDENT = '  ';
+
 const NODES_BASE_TYPES = path.resolve(__dirname, '../../../../nodes-base/dist/types/nodes.json');
 const NODES_LANGCHAIN_TYPES = path.resolve(
 	__dirname,
@@ -476,8 +479,8 @@ function findVersionDirectory(schemaDir: string, version: number): string | unde
  * @returns TypeScript type string
  */
 export function jsonSchemaToTypeScript(schema: JsonSchema, indent = 0): string {
-	const indentStr = '\t'.repeat(indent);
-	const nextIndent = '\t'.repeat(indent + 1);
+	const indentStr = INDENT.repeat(indent);
+	const nextIndent = INDENT.repeat(indent + 1);
 
 	// Handle array of types (e.g., ["string", "null"])
 	if (Array.isArray(schema.type)) {
@@ -874,13 +877,17 @@ function generateFixedCollectionType(
 			if (nestedType) {
 				const quotedName = quotePropertyName(nestedProp.name);
 				// Generate JSDoc for the nested property
-				const jsDoc = generateNestedPropertyJSDoc(nestedProp, '\t\t\t', discriminatorContext);
-				nestedProps.push(`${jsDoc}\n\t\t\t${quotedName}?: ${nestedType}`);
+				const jsDoc = generateNestedPropertyJSDoc(
+					nestedProp,
+					INDENT.repeat(3),
+					discriminatorContext,
+				);
+				nestedProps.push(`${jsDoc}\n${INDENT.repeat(3)}${quotedName}?: ${nestedType}`);
 			}
 		}
 
 		if (nestedProps.length > 0) {
-			const innerType = `{\n${nestedProps.join(';\n')};\n\t\t}`;
+			const innerType = `{\n${nestedProps.join(';\n')};\n${INDENT.repeat(2)}}`;
 			const groupType = isMultipleValues ? `Array<${innerType}>` : innerType;
 
 			// Generate JSDoc for the group if it has builderHint or description
@@ -890,7 +897,7 @@ function generateFixedCollectionType(
 					.replace(/\*\//g, '*\\/')
 					.replace(/</g, '&lt;')
 					.replace(/>/g, '&gt;');
-				groupJsDocLines.push(`\t\t/** ${desc}`);
+				groupJsDocLines.push(`${INDENT.repeat(2)}/** ${desc}`);
 			}
 			if (group.builderHint) {
 				const safeBuilderHint = group.builderHint
@@ -898,14 +905,16 @@ function generateFixedCollectionType(
 					.replace(/</g, '&lt;')
 					.replace(/>/g, '&gt;');
 				if (groupJsDocLines.length === 0) {
-					groupJsDocLines.push(`\t\t/**`);
+					groupJsDocLines.push(`${INDENT.repeat(2)}/**`);
 				}
-				groupJsDocLines.push(`\t\t * @builderHint ${safeBuilderHint}`);
+				groupJsDocLines.push(`${INDENT.repeat(2)} * @builderHint ${safeBuilderHint}`);
 			}
 
 			if (groupJsDocLines.length > 0) {
-				groupJsDocLines.push(`\t\t */`);
-				groups.push(`${groupJsDocLines.join('\n')}\n\t\t${groupName}?: ${groupType}`);
+				groupJsDocLines.push(`${INDENT.repeat(2)} */`);
+				groups.push(
+					`${groupJsDocLines.join('\n')}\n${INDENT.repeat(2)}${groupName}?: ${groupType}`,
+				);
 			} else {
 				groups.push(`${groupName}?: ${groupType}`);
 			}
@@ -916,7 +925,7 @@ function generateFixedCollectionType(
 		return 'Record<string, unknown>';
 	}
 
-	return `{\n\t\t${groups.join(';\n\t\t')};\n\t}`;
+	return `{\n${INDENT.repeat(2)}${groups.join(`;\n${INDENT.repeat(2)}`)};\n${INDENT}}`;
 }
 
 /**
@@ -999,10 +1008,10 @@ function generateCollectionType(
 			// Generate JSDoc for the nested property
 			const jsDoc = generateNestedPropertyJSDoc(
 				nestedProp as NodeProperty,
-				'\t\t',
+				INDENT.repeat(2),
 				discriminatorContext,
 			);
-			nestedProps.push(`${jsDoc}\n\t\t${quotedName}?: ${propType}`);
+			nestedProps.push(`${jsDoc}\n${INDENT.repeat(2)}${quotedName}?: ${propType}`);
 		}
 	}
 
@@ -1010,7 +1019,7 @@ function generateCollectionType(
 		return 'Record<string, unknown>';
 	}
 
-	return `{\n${nestedProps.join(';\n')};\n\t}`;
+	return `{\n${nestedProps.join(';\n')};\n${INDENT}}`;
 }
 
 /**
@@ -1442,7 +1451,7 @@ export function generateDiscriminatedUnion(node: NodeTypeDescription): string {
 		// Add discriminator fields
 		for (const [key, value] of Object.entries(combo)) {
 			if (value !== undefined) {
-				lines.push(`\t${key}: '${value}';`);
+				lines.push(`${INDENT}${key}: '${value}';`);
 			}
 		}
 
@@ -1628,9 +1637,9 @@ export function generatePropertyLine(
 	}
 
 	const optionalMarker = optional ? '?' : '';
-	lines.push(`\t${propName}${optionalMarker}: ${tsType};`);
+	lines.push(`${INDENT}${propName}${optionalMarker}: ${tsType};`);
 
-	return lines.join('\n\t');
+	return lines.join(`\n${INDENT}`);
 }
 
 // =============================================================================
@@ -1948,7 +1957,7 @@ export type AssignmentCollectionValue = { assignments: Array<{ id: string; name:
 			if (seenCreds.has(cred.name)) continue;
 			seenCreds.add(cred.name);
 			const optional = !cred.required ? '?' : '';
-			lines.push(`\t${cred.name}${optional}: CredentialReference;`);
+			lines.push(`${INDENT}${cred.name}${optional}: CredentialReference;`);
 		}
 
 		// Add generic auth credentials if node supports genericAuthType
@@ -1957,12 +1966,12 @@ export type AssignmentCollectionValue = { assignments: Array<{ id: string; name:
 		);
 		if (hasGenericAuthType) {
 			lines.push(
-				`\t/** Generic auth credentials - set the 'genericAuthType' config parameter to select which one to use */`,
+				`${INDENT}/** Generic auth credentials - set the 'genericAuthType' config parameter to select which one to use */`,
 			);
 			for (const credName of GENERIC_AUTH_TYPE_VALUES) {
 				if (!seenCreds.has(credName)) {
 					seenCreds.add(credName);
-					lines.push(`\t${credName}?: CredentialReference;`);
+					lines.push(`${INDENT}${credName}?: CredentialReference;`);
 				}
 			}
 		}
@@ -1973,13 +1982,13 @@ export type AssignmentCollectionValue = { assignments: Array<{ id: string; name:
 
 	const baseTypeName = `${nodeName}${versionSuffix}NodeBase`;
 	lines.push(`export interface ${baseTypeName} {`);
-	lines.push(`\ttype: '${node.name}';`);
-	lines.push(`\tversion: ${version};`);
+	lines.push(`${INDENT}type: '${node.name}';`);
+	lines.push(`${INDENT}version: ${version};`);
 	if (credTypeName) {
-		lines.push(`\tcredentials?: ${credTypeName};`);
+		lines.push(`${INDENT}credentials?: ${credTypeName};`);
 	}
 	if (isTrigger) {
-		lines.push('\tisTrigger: true;');
+		lines.push(`${INDENT}isTrigger: true;`);
 	}
 	lines.push('}');
 
@@ -2077,7 +2086,7 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 			if (seenCreds.has(cred.name)) continue;
 			seenCreds.add(cred.name);
 			const optional = !cred.required ? '?' : '';
-			lines.push(`\t${cred.name}${optional}: CredentialReference;`);
+			lines.push(`${INDENT}${cred.name}${optional}: CredentialReference;`);
 		}
 
 		// Add generic auth credentials if node supports genericAuthType
@@ -2086,12 +2095,12 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 		);
 		if (hasGenericAuthType) {
 			lines.push(
-				`\t/** Generic auth credentials - set the 'genericAuthType' config parameter to select which one to use */`,
+				`${INDENT}/** Generic auth credentials - set the 'genericAuthType' config parameter to select which one to use */`,
 			);
 			for (const credName of GENERIC_AUTH_TYPE_VALUES) {
 				if (!seenCreds.has(credName)) {
 					seenCreds.add(credName);
-					lines.push(`\t${credName}?: CredentialReference;`);
+					lines.push(`${INDENT}${credName}?: CredentialReference;`);
 				}
 			}
 		}
@@ -2120,7 +2129,7 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 	// Add discriminator fields
 	for (const [key, value] of Object.entries(combo)) {
 		if (value !== undefined) {
-			lines.push(`\t${key}: '${value}';`);
+			lines.push(`${INDENT}${key}: '${value}';`);
 		}
 	}
 
@@ -2160,13 +2169,13 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 	}
 
 	lines.push(`export type ${nodeTypeName} = {`);
-	lines.push(`\ttype: '${node.name}';`);
-	lines.push(`\tversion: ${version};`);
+	lines.push(`${INDENT}type: '${node.name}';`);
+	lines.push(`${INDENT}version: ${version};`);
 	if (node.credentials && node.credentials.length > 0) {
-		lines.push('\tcredentials?: Credentials;');
+		lines.push(`${INDENT}credentials?: Credentials;`);
 	}
 	if (isTrigger) {
-		lines.push('\tisTrigger: true;');
+		lines.push(`${INDENT}isTrigger: true;`);
 	}
 	// Include subnodes in config if AI inputs exist
 	// subnodes field is required if any AI input type is required
@@ -2175,9 +2184,9 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 	const configType = subnodeConfigTypeName
 		? `NodeConfig<${configName}> & { subnodes${subnodeOptionalMark}: ${subnodeConfigTypeName} }`
 		: `NodeConfig<${configName}>`;
-	lines.push(`\tconfig: ${configType};`);
+	lines.push(`${INDENT}config: ${configType};`);
 	if (schema) {
-		lines.push(`\toutput?: Items<${outputTypeName}>;`);
+		lines.push(`${INDENT}output?: Items<${outputTypeName}>;`);
 	}
 	lines.push('};');
 
@@ -2235,9 +2244,9 @@ export function generateResourceIndexFile(
 	} else {
 		lines.push(`export type ${resourceNodeTypeName} =`);
 		for (const typeName of nodeTypeNames) {
-			lines.push(`\t| ${typeName}`);
+			lines.push(`${INDENT}| ${typeName}`);
 		}
-		lines.push('\t;');
+		lines.push(`${INDENT};`);
 	}
 
 	return lines.join('\n');
@@ -2315,9 +2324,9 @@ export function generateSplitVersionIndexFile(
 	} else if (nodeTypeNames.length > 1) {
 		lines.push(`export type ${nodeTypeName} =`);
 		for (const typeName of nodeTypeNames) {
-			lines.push(`\t| ${typeName}`);
+			lines.push(`${INDENT}| ${typeName}`);
 		}
-		lines.push('\t;');
+		lines.push(`${INDENT};`);
 	}
 
 	return lines.join('\n');
@@ -2581,7 +2590,7 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 			if (seenCreds.has(cred.name)) continue;
 			seenCreds.add(cred.name);
 			const optional = !cred.required ? '?' : '';
-			lines.push(`\t${cred.name}${optional}: CredentialReference;`);
+			lines.push(`${INDENT}${cred.name}${optional}: CredentialReference;`);
 		}
 
 		// Add generic auth credentials if node supports genericAuthType
@@ -2590,12 +2599,12 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 		);
 		if (hasGenericAuthType) {
 			lines.push(
-				`\t/** Generic auth credentials - set the 'genericAuthType' config parameter to select which one to use */`,
+				`${INDENT}/** Generic auth credentials - set the 'genericAuthType' config parameter to select which one to use */`,
 			);
 			for (const credName of GENERIC_AUTH_TYPE_VALUES) {
 				if (!seenCreds.has(credName)) {
 					seenCreds.add(credName);
-					lines.push(`\t${credName}?: CredentialReference;`);
+					lines.push(`${INDENT}${credName}?: CredentialReference;`);
 				}
 			}
 		}
@@ -2607,13 +2616,13 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 	// Generate base type with common fields to avoid repetition
 	const baseTypeName = `${nodeName}${versionSuffix}NodeBase`;
 	lines.push(`interface ${baseTypeName} {`);
-	lines.push(`\ttype: '${node.name}';`);
-	lines.push(`\tversion: ${specificVersion};`);
+	lines.push(`${INDENT}type: '${node.name}';`);
+	lines.push(`${INDENT}version: ${specificVersion};`);
 	if (credTypeName) {
-		lines.push(`\tcredentials?: ${credTypeName};`);
+		lines.push(`${INDENT}credentials?: ${credTypeName};`);
 	}
 	if (isTrigger) {
-		lines.push('\tisTrigger: true;');
+		lines.push(`${INDENT}isTrigger: true;`);
 	}
 	lines.push('}');
 	lines.push('');
@@ -2641,13 +2650,13 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 			const hasRequiredSubnodes = aiInputTypes.some((input) => input.required);
 			const subnodeOptionalMark = hasRequiredSubnodes ? '' : '?';
 			lines.push(
-				`\tconfig: NodeConfig<${configInfo.typeName}> & { subnodes${subnodeOptionalMark}: ${subnodeConfigTypeName} };`,
+				`${INDENT}config: NodeConfig<${configInfo.typeName}> & { subnodes${subnodeOptionalMark}: ${subnodeConfigTypeName} };`,
 			);
 		} else {
-			lines.push(`\tconfig: NodeConfig<${configInfo.typeName}>;`);
+			lines.push(`${INDENT}config: NodeConfig<${configInfo.typeName}>;`);
 		}
 		if (outputTypeName) {
-			lines.push(`\toutput?: Items<${outputTypeName}>;`);
+			lines.push(`${INDENT}output?: Items<${outputTypeName}>;`);
 		}
 		lines.push('};');
 		lines.push('');
@@ -2663,13 +2672,13 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 		// Multiple node types - create union
 		lines.push(`export type ${nodeTypeName} =`);
 		for (let i = 0; i < individualNodeTypes.length; i++) {
-			lines.push(`\t| ${individualNodeTypes[i]}`);
+			lines.push(`${INDENT}| ${individualNodeTypes[i]}`);
 		}
-		lines.push('\t;');
+		lines.push(`${INDENT};`);
 	} else {
 		// No config types - shouldn't happen, but handle gracefully
 		lines.push(`export type ${nodeTypeName} = ${baseTypeName} & {`);
-		lines.push(`\tconfig: NodeConfig<Record<string, unknown>>;`);
+		lines.push(`${INDENT}config: NodeConfig<Record<string, unknown>>;`);
 		lines.push('};');
 	}
 
@@ -2838,7 +2847,7 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 				if (seenCreds.has(cred.name)) continue;
 				seenCreds.add(cred.name);
 				const optional = !cred.required ? '?' : '';
-				lines.push(`\t${cred.name}${optional}: CredentialReference;`);
+				lines.push(`${INDENT}${cred.name}${optional}: CredentialReference;`);
 			}
 
 			// Add generic auth credentials if node supports genericAuthType
@@ -2847,12 +2856,12 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 			);
 			if (hasGenericAuthType) {
 				lines.push(
-					`\t/** Generic auth credentials - set the 'genericAuthType' config parameter to select which one to use */`,
+					`${INDENT}/** Generic auth credentials - set the 'genericAuthType' config parameter to select which one to use */`,
 				);
 				for (const credName of GENERIC_AUTH_TYPE_VALUES) {
 					if (!seenCreds.has(credName)) {
 						seenCreds.add(credName);
-						lines.push(`\t${credName}?: CredentialReference;`);
+						lines.push(`${INDENT}${credName}?: CredentialReference;`);
 					}
 				}
 			}
@@ -2882,13 +2891,13 @@ type AssignmentCollectionValue = { assignments: Array<{ id: string; name: string
 				: 'Record<string, never>';
 
 		lines.push(`export type ${nodeTypeName} = {`);
-		lines.push(`\ttype: '${n.name}';`);
-		lines.push(`\tversion: ${versionUnion};`);
-		lines.push(`\tconfig: NodeConfig<${nodeName}${entryVersionSuffix}Params>;`);
-		lines.push(`\tcredentials?: ${credType};`);
+		lines.push(`${INDENT}type: '${n.name}';`);
+		lines.push(`${INDENT}version: ${versionUnion};`);
+		lines.push(`${INDENT}config: NodeConfig<${nodeName}${entryVersionSuffix}Params>;`);
+		lines.push(`${INDENT}credentials?: ${credType};`);
 
 		if (isTrigger) {
-			lines.push('\tisTrigger: true;');
+			lines.push(`${INDENT}isTrigger: true;`);
 		}
 
 		lines.push('};');
@@ -2993,7 +3002,7 @@ function generateDiscriminatedUnionForEntry(
 		// Add discriminator fields
 		for (const [key, value] of Object.entries(combo)) {
 			if (value !== undefined) {
-				lines.push(`\t${key}: '${value}';`);
+				lines.push(`${INDENT}${key}: '${value}';`);
 			}
 		}
 
@@ -3078,10 +3087,9 @@ export function generateIndexFile(nodes: NodeTypeDescription[]): string {
 	lines.push('// Combined type union of node type strings');
 	lines.push('export type KnownNodeType =');
 	for (let i = 0; i < nodes.length; i++) {
-		const prefix = i === 0 ? '\t| ' : '\t| ';
-		lines.push(`${prefix}'${nodes[i].name}'`);
+		lines.push(`${INDENT}| '${nodes[i].name}'`);
 	}
-	lines.push('\t;');
+	lines.push(`${INDENT};`);
 	lines.push('');
 
 	// Generate AllNodeTypes union (union of all *Node types for use with NodeFn)
@@ -3091,10 +3099,9 @@ export function generateIndexFile(nodes: NodeTypeDescription[]): string {
 		const node = sortedNodes[i];
 		const prefix = getPackagePrefix(node.name);
 		const nodeName = prefix + toPascalCase(getNodeBaseName(node.name));
-		const unionPrefix = i === 0 ? '\t| ' : '\t| ';
-		lines.push(`${unionPrefix}${nodeName}Node`);
+		lines.push(`${INDENT}| ${nodeName}Node`);
 	}
-	lines.push('\t;');
+	lines.push(`${INDENT};`);
 
 	return lines.join('\n');
 }
@@ -3374,7 +3381,7 @@ function formatSubnodeDisplayOptionsAsJSDoc(
 		parts.push(`@displayOptions.hide { ${hideObj} }`);
 	}
 
-	return parts.length > 0 ? parts.join('\n\t * ') : undefined;
+	return parts.length > 0 ? parts.join(`\n${INDENT} * `) : undefined;
 }
 
 /**
@@ -3420,15 +3427,15 @@ export function generateNarrowedSubnodeConfig(
 		if (aiInput.displayOptions) {
 			const displayOptionsJSDoc = formatSubnodeDisplayOptionsAsJSDoc(aiInput.displayOptions);
 			if (displayOptionsJSDoc) {
-				lines.push(`\t/**`);
-				lines.push(`\t * ${displayOptionsJSDoc}`);
-				lines.push(`\t */`);
+				lines.push(`${INDENT}/**`);
+				lines.push(`${INDENT} * ${displayOptionsJSDoc}`);
+				lines.push(`${INDENT} */`);
 			}
 		}
 
 		// Mark field as optional only if not required
 		const optional = aiInput.required ? '' : '?';
-		lines.push(`\t${fieldInfo.fieldName}${optional}: ${typeStr};`);
+		lines.push(`${INDENT}${fieldInfo.fieldName}${optional}: ${typeStr};`);
 	}
 
 	lines.push('}');
@@ -3526,10 +3533,9 @@ export function generateSubnodeUnionTypes(nodes: NodeTypeDescription[]): string 
 			// Generate union of literal types
 			lines.push(`export type ${unionTypeName} =`);
 			for (let i = 0; i < nodeNames.length; i++) {
-				const prefix = i === 0 ? '\t| ' : '\t| ';
-				lines.push(`${prefix}'${nodeNames[i]}'`);
+				lines.push(`${INDENT}| '${nodeNames[i]}'`);
 			}
-			lines.push('\t;');
+			lines.push(`${INDENT};`);
 		}
 
 		lines.push('');

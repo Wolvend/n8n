@@ -30,6 +30,9 @@ import {
 // Constants
 // =============================================================================
 
+/** Indentation string for generated code (2 spaces per level) */
+const INDENT = '  ';
+
 /**
  * Known values for genericAuthType in HTTP Request node
  */
@@ -610,7 +613,7 @@ export function generateSchemaPropertyLine(prop: NodeProperty, optional: boolean
 
 	const propName = quotePropertyName(prop.name);
 	const schema = optional ? `${zodSchema}.optional()` : zodSchema;
-	return `\t${propName}: ${schema},`;
+	return `${INDENT}${propName}: ${schema},`;
 }
 
 /**
@@ -801,7 +804,7 @@ export function generateConditionalSchemaLine(
 	const defaultsStr =
 		Object.keys(defaults).length > 0 ? `, defaults: ${JSON.stringify(defaults)}` : '';
 
-	return `\t${propName}: resolveSchema({ parameters, schema: ${zodSchema}, required: ${required}, displayOptions: ${displayOptionsStr}${defaultsStr} }),`;
+	return `${INDENT}${propName}: resolveSchema({ parameters, schema: ${zodSchema}, required: ${required}, displayOptions: ${displayOptionsStr}${defaultsStr} }),`;
 }
 
 // =============================================================================
@@ -860,7 +863,7 @@ export function generateSubnodeConfigSchemaCode(
 	if (hasConditional) {
 		// Generate factory function for conditional fields (CommonJS)
 		lines.push(`function get${schemaName}SubnodeConfigSchema({ parameters, resolveSchema }) {`);
-		lines.push('\treturn z.object({');
+		lines.push(`${INDENT}return z.object({`);
 	} else {
 		// Generate static schema (CommonJS)
 		lines.push(`const ${schemaName}SubnodeConfigSchema = z.object({`);
@@ -887,7 +890,7 @@ export function generateSubnodeConfigSchemaCode(
 		if (aiInput.displayOptions) {
 			// Use resolveSchema for conditional fields
 			const displayOptionsStr = JSON.stringify(aiInput.displayOptions);
-			const indent = hasConditional ? '\t\t' : '\t';
+			const indent = hasConditional ? INDENT.repeat(2) : INDENT;
 			// Extract defaults for properties referenced in displayOptions
 			let defaultsStr = '';
 			if (allProperties) {
@@ -900,16 +903,16 @@ export function generateSubnodeConfigSchemaCode(
 				`${indent}${fieldInfo.fieldName}: resolveSchema({ parameters, schema: ${schemaStr}, required: ${aiInput.required}, displayOptions: ${displayOptionsStr}${defaultsStr} }),`,
 			);
 		} else if (!aiInput.required) {
-			const indent = hasConditional ? '\t\t' : '\t';
+			const indent = hasConditional ? INDENT.repeat(2) : INDENT;
 			lines.push(`${indent}${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
 		} else {
-			const indent = hasConditional ? '\t\t' : '\t';
+			const indent = hasConditional ? INDENT.repeat(2) : INDENT;
 			lines.push(`${indent}${fieldInfo.fieldName}: ${schemaStr},`);
 		}
 	}
 
 	if (hasConditional) {
-		lines.push('\t});');
+		lines.push(`${INDENT}});`);
 		lines.push('}');
 		lines.push(
 			`exports.get${schemaName}SubnodeConfigSchema = get${schemaName}SubnodeConfigSchema;`,
@@ -1026,9 +1029,9 @@ export function generateSingleVersionSchemaFile(
 	// Generate subnode helper function if AI node with conditional fields
 	if (hasAiInputs && hasConditionalSubnodeFields(aiInputTypes)) {
 		lines.push('');
-		lines.push('\t// Helper function for conditional subnode schema');
-		lines.push('\tfunction getSubnodesSchema() {');
-		lines.push('\t\treturn z.object({');
+		lines.push(`${INDENT}// Helper function for conditional subnode schema`);
+		lines.push(`${INDENT}function getSubnodesSchema() {`);
+		lines.push(`${INDENT.repeat(2)}return z.object({`);
 		for (const aiInput of aiInputTypes) {
 			const fieldInfo = AI_TYPE_TO_SCHEMA_FIELD[aiInput.type];
 			if (!fieldInfo) continue;
@@ -1051,23 +1054,23 @@ export function generateSingleVersionSchemaFile(
 				const defaultsStr =
 					Object.keys(defaults).length > 0 ? `, defaults: ${JSON.stringify(defaults)}` : '';
 				lines.push(
-					`\t\t\t${fieldInfo.fieldName}: resolveSchema({ parameters, schema: ${schemaStr}, required: ${aiInput.required}, displayOptions: ${displayOptionsStr}${defaultsStr} }),`,
+					`${INDENT.repeat(3)}${fieldInfo.fieldName}: resolveSchema({ parameters, schema: ${schemaStr}, required: ${aiInput.required}, displayOptions: ${displayOptionsStr}${defaultsStr} }),`,
 				);
 			} else if (!aiInput.required) {
-				lines.push(`\t\t\t${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
+				lines.push(`${INDENT.repeat(3)}${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
 			} else {
-				lines.push(`\t\t\t${fieldInfo.fieldName}: ${schemaStr},`);
+				lines.push(`${INDENT.repeat(3)}${fieldInfo.fieldName}: ${schemaStr},`);
 			}
 		}
-		lines.push('\t\t});');
-		lines.push('\t}');
+		lines.push(`${INDENT.repeat(2)}});`);
+		lines.push(`${INDENT}}`);
 	}
 
 	// Generate static subnode schema if AI node without conditional fields
 	if (hasAiInputs && !hasConditionalSubnodeFields(aiInputTypes)) {
 		lines.push('');
-		lines.push('\t// Static subnode schema');
-		lines.push('\tconst subnodesSchema = z.object({');
+		lines.push(`${INDENT}// Static subnode schema`);
+		lines.push(`${INDENT}const subnodesSchema = z.object({`);
 		for (const aiInput of aiInputTypes) {
 			const fieldInfo = AI_TYPE_TO_SCHEMA_FIELD[aiInput.type];
 			if (!fieldInfo) continue;
@@ -1082,18 +1085,18 @@ export function generateSingleVersionSchemaFile(
 			}
 
 			if (!aiInput.required) {
-				lines.push(`\t\t${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
+				lines.push(`${INDENT.repeat(2)}${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
 			} else {
-				lines.push(`\t\t${fieldInfo.fieldName}: ${schemaStr},`);
+				lines.push(`${INDENT.repeat(2)}${fieldInfo.fieldName}: ${schemaStr},`);
 			}
 		}
-		lines.push('\t});');
+		lines.push(`${INDENT}});`);
 	}
 
 	// Generate parameters schema
 	lines.push('');
-	lines.push('\t// Parameters schema');
-	lines.push('\tconst parametersSchema = z.object({');
+	lines.push(`${INDENT}// Parameters schema`);
+	lines.push(`${INDENT}const parametersSchema = z.object({`);
 
 	// Group properties by name, merging displayOptions and nested options for duplicates
 	const propsByName = mergePropertiesByName(filteredProperties);
@@ -1112,39 +1115,43 @@ export function generateSingleVersionSchemaFile(
 				};
 				const propLine = generateConditionalSchemaLine(propWithStripped, allPropsArray);
 				if (propLine) {
-					lines.push('\t' + propLine);
+					lines.push(INDENT + propLine);
 				}
 			} else {
 				// No remaining conditions after stripping @version - use static schema
 				const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
 				if (propLine) {
-					lines.push('\t' + propLine);
+					lines.push(INDENT + propLine);
 				}
 			}
 		} else {
 			const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
 			if (propLine) {
-				lines.push('\t' + propLine);
+				lines.push(INDENT + propLine);
 			}
 		}
 	}
 
-	lines.push('\t});');
+	lines.push(`${INDENT}});`);
 
 	// Return the combined schema
 	lines.push('');
-	lines.push('\t// Return combined config schema');
-	lines.push('\treturn z.object({');
-	lines.push('\t\tparameters: parametersSchema.optional(),');
+	lines.push(`${INDENT}// Return combined config schema`);
+	lines.push(`${INDENT}return z.object({`);
+	lines.push(`${INDENT.repeat(2)}parameters: parametersSchema.optional(),`);
 	if (hasAiInputs) {
 		const subnodesOptional = !hasRequiredSubnodeFields(aiInputTypes);
 		if (hasConditionalSubnodeFields(aiInputTypes)) {
-			lines.push(`\t\tsubnodes: getSubnodesSchema()${subnodesOptional ? '.optional()' : ''},`);
+			lines.push(
+				`${INDENT.repeat(2)}subnodes: getSubnodesSchema()${subnodesOptional ? '.optional()' : ''},`,
+			);
 		} else {
-			lines.push(`\t\tsubnodes: subnodesSchema${subnodesOptional ? '.optional()' : ''},`);
+			lines.push(
+				`${INDENT.repeat(2)}subnodes: subnodesSchema${subnodesOptional ? '.optional()' : ''},`,
+			);
 		}
 	}
-	lines.push('\t});');
+	lines.push(`${INDENT}});`);
 	lines.push('};');
 
 	return lines.join('\n');
@@ -1282,9 +1289,9 @@ export function generateDiscriminatorSchemaFile(
 	// Generate subnode helper function if AI node with conditional fields
 	if (hasConditionalAiInputs) {
 		lines.push('');
-		lines.push('\t// Helper function for conditional subnode schema');
-		lines.push('\tfunction getSubnodesSchema() {');
-		lines.push('\t\treturn z.object({');
+		lines.push(`${INDENT}// Helper function for conditional subnode schema`);
+		lines.push(`${INDENT}function getSubnodesSchema() {`);
+		lines.push(`${INDENT.repeat(2)}return z.object({`);
 		for (const aiInput of aiInputTypes) {
 			const fieldInfo = AI_TYPE_TO_SCHEMA_FIELD[aiInput.type];
 			if (!fieldInfo) continue;
@@ -1304,23 +1311,23 @@ export function generateDiscriminatorSchemaFile(
 				const defaultsStr =
 					Object.keys(defaults).length > 0 ? `, defaults: ${JSON.stringify(defaults)}` : '';
 				lines.push(
-					`\t\t\t${fieldInfo.fieldName}: resolveSchema({ parameters, schema: ${schemaStr}, required: ${aiInput.required}, displayOptions: ${displayOptionsStr}${defaultsStr} }),`,
+					`${INDENT.repeat(3)}${fieldInfo.fieldName}: resolveSchema({ parameters, schema: ${schemaStr}, required: ${aiInput.required}, displayOptions: ${displayOptionsStr}${defaultsStr} }),`,
 				);
 			} else if (!aiInput.required) {
-				lines.push(`\t\t\t${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
+				lines.push(`${INDENT.repeat(3)}${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
 			} else {
-				lines.push(`\t\t\t${fieldInfo.fieldName}: ${schemaStr},`);
+				lines.push(`${INDENT.repeat(3)}${fieldInfo.fieldName}: ${schemaStr},`);
 			}
 		}
-		lines.push('\t\t});');
-		lines.push('\t}');
+		lines.push(`${INDENT.repeat(2)}});`);
+		lines.push(`${INDENT}}`);
 	}
 
 	// Generate static subnode schema if AI node without conditional fields
 	if (hasAiInputs && !hasConditionalAiInputs) {
 		lines.push('');
-		lines.push('\t// Static subnode schema');
-		lines.push('\tconst subnodesSchema = z.object({');
+		lines.push(`${INDENT}// Static subnode schema`);
+		lines.push(`${INDENT}const subnodesSchema = z.object({`);
 		for (const aiInput of aiInputTypes) {
 			const fieldInfo = AI_TYPE_TO_SCHEMA_FIELD[aiInput.type];
 			if (!fieldInfo) continue;
@@ -1335,18 +1342,18 @@ export function generateDiscriminatorSchemaFile(
 			}
 
 			if (!aiInput.required) {
-				lines.push(`\t\t${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
+				lines.push(`${INDENT.repeat(2)}${fieldInfo.fieldName}: ${schemaStr}.optional(),`);
 			} else {
-				lines.push(`\t\t${fieldInfo.fieldName}: ${schemaStr},`);
+				lines.push(`${INDENT.repeat(2)}${fieldInfo.fieldName}: ${schemaStr},`);
 			}
 		}
-		lines.push('\t});');
+		lines.push(`${INDENT}});`);
 	}
 
 	// Return the schema
 	lines.push('');
-	lines.push('\treturn z.object({');
-	lines.push('\t\tparameters: z.object({');
+	lines.push(`${INDENT}return z.object({`);
+	lines.push(`${INDENT.repeat(2)}parameters: z.object({`);
 
 	// Add discriminator fields as literals (with defaults if they have matching defaults)
 	for (const [key, value] of Object.entries(combo)) {
@@ -1357,10 +1364,10 @@ export function generateDiscriminatorSchemaFile(
 
 			if (hasMatchingDefault) {
 				// Accept undefined and default to the expected value
-				lines.push(`\t\t\t${key}: z.literal('${value}').default('${value}'),`);
+				lines.push(`${INDENT.repeat(3)}${key}: z.literal('${value}').default('${value}'),`);
 			} else {
 				// Require the literal value (no matching default)
-				lines.push(`\t\t\t${key}: z.literal('${value}'),`);
+				lines.push(`${INDENT.repeat(3)}${key}: z.literal('${value}'),`);
 			}
 		}
 	}
@@ -1384,34 +1391,38 @@ export function generateDiscriminatorSchemaFile(
 				};
 				const propLine = generateConditionalSchemaLine(propWithStrippedOptions, allPropsArray);
 				if (propLine) {
-					lines.push('\t\t' + propLine);
+					lines.push(INDENT.repeat(2) + propLine);
 				}
 			} else {
 				const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
 				if (propLine) {
-					lines.push('\t\t' + propLine);
+					lines.push(INDENT.repeat(2) + propLine);
 				}
 			}
 		} else {
 			const propLine = generateSchemaPropertyLine(prop, isPropertyOptional(prop));
 			if (propLine) {
-				lines.push('\t\t' + propLine);
+				lines.push(INDENT.repeat(2) + propLine);
 			}
 		}
 	}
 
-	lines.push('\t\t}).optional(),');
+	lines.push(`${INDENT.repeat(2)}).optional(),`);
 
 	if (hasAiInputs) {
 		const subnodesOptional = !hasRequiredSubnodeFields(aiInputTypes);
 		if (hasConditionalAiInputs) {
-			lines.push(`\t\tsubnodes: getSubnodesSchema()${subnodesOptional ? '.optional()' : ''},`);
+			lines.push(
+				`${INDENT.repeat(2)}subnodes: getSubnodesSchema()${subnodesOptional ? '.optional()' : ''},`,
+			);
 		} else {
-			lines.push(`\t\tsubnodes: subnodesSchema${subnodesOptional ? '.optional()' : ''},`);
+			lines.push(
+				`${INDENT.repeat(2)}subnodes: subnodesSchema${subnodesOptional ? '.optional()' : ''},`,
+			);
 		}
 	}
 
-	lines.push('\t});');
+	lines.push(`${INDENT}});`);
 	lines.push('};');
 
 	return lines.join('\n');
@@ -1461,7 +1472,7 @@ export function generateResourceIndexSchemaFile(
 
 	// Export factory function via module.exports - receives all helpers and passes them through
 	lines.push(`module.exports = function getSchema(helpers) {`);
-	lines.push(`\tconst { parameters, z } = helpers;`);
+	lines.push(`${INDENT}const { parameters, z } = helpers;`);
 
 	// Apply operation default if operation is missing from parameters
 	if (operationDefault !== undefined) {
@@ -1469,9 +1480,9 @@ export function generateResourceIndexSchemaFile(
 			typeof operationDefault === 'string'
 				? `'${operationDefault}'`
 				: JSON.stringify(operationDefault);
-		lines.push(`\t// Apply operation default if not set`);
+		lines.push(`${INDENT}// Apply operation default if not set`);
 		lines.push(
-			`\tconst effectiveParams = parameters.operation === undefined ? { ...parameters, operation: ${defaultValueStr} } : parameters;`,
+			`${INDENT}const effectiveParams = parameters.operation === undefined ? { ...parameters, operation: ${defaultValueStr} } : parameters;`,
 		);
 	}
 
@@ -1481,14 +1492,14 @@ export function generateResourceIndexSchemaFile(
 
 	if (operations.length === 1) {
 		const importName = `get${toPascalCase(operations[0])}Schema`;
-		lines.push(`\treturn ${importName}(${helpersArg});`);
+		lines.push(`${INDENT}return ${importName}(${helpersArg});`);
 	} else {
-		lines.push('\treturn z.union([');
+		lines.push(`${INDENT}return z.union([`);
 		for (const op of operations.sort()) {
 			const importName = `get${toPascalCase(op)}Schema`;
-			lines.push(`\t\t${importName}(${helpersArg}),`);
+			lines.push(`${INDENT.repeat(2)}${importName}(${helpersArg}),`);
 		}
-		lines.push('\t]);');
+		lines.push(`${INDENT}]);`);
 	}
 	lines.push('};');
 
@@ -1558,7 +1569,7 @@ export function generateSplitVersionIndexSchemaFile(
 
 	// Export factory function via module.exports - receives all helpers and passes them through
 	lines.push(`module.exports = function getSchema(helpers) {`);
-	lines.push(`\tconst { parameters, z } = helpers;`);
+	lines.push(`${INDENT}const { parameters, z } = helpers;`);
 
 	// Apply discriminator default if discriminator is missing from parameters
 	if (discriminatorDefault) {
@@ -1566,9 +1577,9 @@ export function generateSplitVersionIndexSchemaFile(
 			typeof discriminatorDefault.value === 'string'
 				? `'${discriminatorDefault.value}'`
 				: JSON.stringify(discriminatorDefault.value);
-		lines.push(`\t// Apply discriminator default if not set`);
+		lines.push(`${INDENT}// Apply discriminator default if not set`);
 		lines.push(
-			`\tconst effectiveParams = parameters.${discriminatorDefault.name} === undefined ? { ...parameters, ${discriminatorDefault.name}: ${defaultValueStr} } : parameters;`,
+			`${INDENT}const effectiveParams = parameters.${discriminatorDefault.name} === undefined ? { ...parameters, ${discriminatorDefault.name}: ${defaultValueStr} } : parameters;`,
 		);
 	}
 
@@ -1576,15 +1587,15 @@ export function generateSplitVersionIndexSchemaFile(
 	const helpersArg = discriminatorDefault ? `{ ...helpers, parameters: ${paramsVar} }` : 'helpers';
 
 	if (importNames.length === 1) {
-		lines.push(`\treturn ${importNames[0]}(${helpersArg});`);
+		lines.push(`${INDENT}return ${importNames[0]}(${helpersArg});`);
 	} else if (importNames.length > 1) {
-		lines.push('\treturn z.union([');
+		lines.push(`${INDENT}return z.union([`);
 		for (const importName of importNames) {
-			lines.push(`\t\t${importName}(${helpersArg}),`);
+			lines.push(`${INDENT.repeat(2)}${importName}(${helpersArg}),`);
 		}
-		lines.push('\t]);');
+		lines.push(`${INDENT}]);`);
 	} else {
-		lines.push('\treturn z.object({});');
+		lines.push(`${INDENT}return z.object({});`);
 	}
 	lines.push('};');
 
