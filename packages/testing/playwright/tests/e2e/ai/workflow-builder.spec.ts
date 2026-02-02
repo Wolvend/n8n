@@ -98,9 +98,6 @@ test.describe('Workflow Builder @auth:owner @ai @capability:proxy', () => {
 });
 
 test.describe('Workflow Builder - Generation @auth:owner @ai @capability:proxy', () => {
-	// Increase timeout for AI workflow generation (5 minutes for recording, includes multiple API calls)
-	test.setTimeout(300_000);
-
 	test.beforeEach(async ({ setupRequirements, proxyServer }) => {
 		await setupRequirements(workflowBuilderEnabledRequirements);
 		await proxyServer.clearAllExpectations();
@@ -112,7 +109,6 @@ test.describe('Workflow Builder - Generation @auth:owner @ai @capability:proxy',
 	test.afterEach(async ({ proxyServer }) => {
 		// Record expectations when not in CI (keeps them fresh as API evolves)
 		if (!process.env.CI) {
-			console.log('Recording expectations');
 			await proxyServer.recordExpectations('workflow-builder', {
 				// Note: dedupe disabled - each request in the AI workflow sequence needs its own
 				// response even if they look similar (different conversation history)
@@ -141,12 +137,11 @@ test.describe('Workflow Builder - Generation @auth:owner @ai @capability:proxy',
 	});
 
 	test('should display assistant messages during workflow generation', async ({ n8n }) => {
-		test.setTimeout(300_000);
 		await n8n.page.goto('/workflow/new');
 		await openBuilderAndClickSuggestion(n8n, 'Daily AI news digest');
 
 		await expect(n8n.aiAssistant.getChatMessagesUser().first()).toBeVisible();
-		await n8n.aiAssistant.waitForStreamingComplete({ timeout: 300_000 });
+		await n8n.aiAssistant.waitForStreamingComplete();
 
 		const assistantMessages = n8n.aiAssistant.getChatMessagesAssistant();
 		await expect(assistantMessages.first()).toBeVisible();
@@ -163,7 +158,7 @@ test.describe('Workflow Builder - Generation @auth:owner @ai @capability:proxy',
 
 		// Wait for stop button to be enabled (streaming has started)
 		const stopButton = n8n.aiAssistant.getSendMessageButton();
-		await expect(stopButton).toBeEnabled({ timeout: 30000 });
+		await expect(stopButton).toBeEnabled();
 
 		await stopButton.click();
 

@@ -24,6 +24,7 @@ import type { ResourceLocatorCallback } from './types/callbacks';
 import type { SimpleWorkflow } from './types/workflow';
 import { createStreamProcessor, type StreamEvent } from './utils/stream-processor';
 import type { WorkflowState } from './workflow-state';
+import { resetIdCounters } from './tools/utils/node-creation.utils';
 
 const PROMPT_IS_TOO_LARGE_ERROR =
 	'The current conversation and workflow state is too large to process. Try to simplify your workflow by breaking it into smaller parts.';
@@ -116,13 +117,7 @@ export class WorkflowBuilderAgent {
 		this.resourceLocatorCallback = config.resourceLocatorCallback;
 
 		// Reset ID counters for E2E test isolation
-		console.log(
-			'🚀 ~ WorkflowBuilderAgent ~ constructor ~ process.env.E2E_TESTS:',
-			process.env.E2E_TESTS,
-		);
 		if (process.env.E2E_TESTS === 'true') {
-			// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-			const { resetIdCounters } = require('./tools/utils/node-creation.utils');
 			resetIdCounters();
 		}
 	}
