@@ -138,9 +138,9 @@ const model = createChatModel(this, {
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
 │                               COMMUNITY NODE                                        │
 │  ┌─────────────────────────────────────────────────────────────────────────────┐    │
-│  │  import { createMemory, IChatHistory } from '@n8n/ai-node-sdk';             │    │
+│  │  import { createMemory, ChatHistory } from '@n8n/ai-node-sdk';              │    │
 │  │                                                                             │    │
-│  │  class MyChatHistory implements IChatHistory { /* storage logic */ }        │    │
+│  │  class MyChatHistory implements ChatHistory { /* storage logic */ }         │    │
 │  │                                                                             │    │
 │  │  supplyData() {                                                             │    │
 │  │    const memory = createMemory(this, { chatHistory: new MyChatHistory() }); │    │
@@ -161,7 +161,7 @@ const model = createChatModel(this, {
 │  │ export { createMemory } from './factories/memory';                           │   │
 │  │                                                                              │   │
 │  │ // Interfaces for Extension                                                  │   │
-│  │ export { IChatHistory } from './types/chatHistory';                          │   │
+│  │ export { ChatHistory } from './types/chatHistory';                           │   │
 │  │                                                                              │   │
 │  │ // Types                                                                     │   │
 │  │ export type { Message, ChatModelOptions, ... } from './types';               │   │
@@ -173,7 +173,7 @@ const model = createChatModel(this, {
 │  │ ADAPTERS (Internal - Hidden from Community)                                  │   │
 │  │                                                                              │   │
 │  │ // Bridges n8n types ↔ LangChain types                                       │   │
-│  │ class IChatHistoryAdapter extends BaseChatMessageHistory { }                 │   │
+│  │ class ChatHistoryAdapter extends BaseChatMessageHistory { }                  │   │
 │  └──────────────────────────────────────────────────────────────────────────────┘   │
 └───────────────────────────────────────┬─────────────────────────────────────────────┘
                                         │
@@ -199,14 +199,20 @@ packages/
 │   ├── src/
 │   │   ├── index.ts               # Public exports only
 │   │   ├── types/
-│   │   │   ├── messages.ts        # Message, MessageRole
-│   │   │   ├── chatModel.ts       # ChatModelOptions, etc.
+│   │   │   ├── messages.ts        # Message, ContentBlock, MessageRole
+│   │   │   ├── tools.ts           # Tool, ToolCall, ToolChoice
+│   │   │   ├── results.ts         # GenerateResult, StreamChunk
+│   │   │   ├── chatModel.ts       # ChatModel, ChatModelConfig, ChatModelOptions
 │   │   │   ├── memory.ts          # MemoryOptions
-│   │   │   └── chatHistory.ts     # IChatHistory interface
+│   │   │   └── chatHistory.ts     # ChatHistory interface
 │   │   ├── factories/             # Factory functions
 │   │   │   ├── chatModel.ts       # createChatModel()
 │   │   │   └── memory.ts          # createMemory()
-│   │   └── adapters/              # Internal LangChain adapters
+│   │   ├── utils/                 # Utility functions
+│   │   │   ├── toolConversion.ts  # toOpenAITool, toAnthropicTool, etc.
+│   │   │   └── schema.ts          # zodToJsonSchema, parseToolArguments
+│   │   └── adapters/              # Internal LangChain adapters (not exported)
+│   │       ├── chatModelAdapter.ts
 │   │       └── chatHistoryAdapter.ts
 │   ├── package.json
 │   └── tsconfig.json
@@ -215,49 +221,263 @@ packages/
     └── ...                        # Unchanged
 ```
 
+### Data Flow
+
+```
+                     ┌──────────────────┐
+                     │  Community Node  │
+                     │  supplyData()    │
+                     └────────┬─────────┘
+                              │ createChatModel(this, options)
+                              ▼
+                     ┌──────────────────┐
+                     │  @n8n/ai-node-sdk│
+                     │  Factory         │
+                     └────────┬─────────┘
+                              │
+           ┌──────────────────┼──────────────────┐
+           │                  │                  │
+           ▼                  ▼                  ▼
+  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+  │ OpenAI-         │ │ Custom          │ │ Future:         │
+  │ Compatible      │ │ (generate/      │ │ Anthropic,      │
+  │ Handler         │ │  stream funcs)  │ │ Google, etc.    │
+  └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+           │                   │                   │
+           └───────────────────┼───────────────────┘
+                               │
+                               ▼
+                     ┌──────────────────┐
+                     │ ChatModelAdapter │  ← Internal, wraps as LangChain BaseChatModel
+                     │ (LangChain)      │
+                     └────────┬─────────┘
+                              │ returns LangChain-compatible object
+                              ▼
+                     ┌──────────────────┐
+                     │   AI Agent       │  ← Existing n8n node, unchanged
+                     │   (existing)     │
+                     └──────────────────┘
+```
+
+**Message Conversion Flow:**
+
+```
+Community Node                    SDK Internal                      LangChain
+─────────────────────────────────────────────────────────────────────────────────
+Message[]           ──────►    Adapter converts to    ──────►    BaseMessage[]
+(ContentBlock-based)           LangChain format
+
+                    ◄──────    Adapter converts from  ◄──────    AIMessage/ChatResult
+GenerateResult                 LangChain format
+(text, usage, toolCalls)
+```
+
 ---
 
 ## API Design
 
 ### Core Types
 
-#### Messages (LangChain-Agnostic)
+#### Messages with Structured Content Blocks
+
+Modern LLMs return structured content: text, reasoning traces, images, tool calls. The SDK uses content blocks to handle all cases cleanly.
 
 ```typescript
 // types/messages.ts
 
-export type MessageRole = 'human' | 'ai' | 'system' | 'function' | 'tool';
+export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
+
+/**
+ * Content block types - each message contains one content block.
+ * Multi-block messages (e.g., text + tool call) become multiple Message objects.
+ */
+export type ContentBlock =
+  | TextContent
+  | ReasoningContent
+  | FileContent
+  | ToolCallContent
+  | ToolResultContent;
+
+export interface TextContent {
+  type: 'text';
+  text: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ReasoningContent {
+  type: 'reasoning';
+  text: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface FileContent {
+  type: 'file';
+  /** IANA media type, e.g. 'image/png', 'audio/mp3' */
+  mediaType: string;
+  /** Base64 string or binary data */
+  data: string | Uint8Array;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ToolCallContent {
+  type: 'tool-call';
+  toolCallId: string;
+  toolName: string;
+  /** Stringified JSON arguments */
+  input: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ToolResultContent {
+  type: 'tool-result';
+  toolCallId: string;
+  result: unknown;
+  isError?: boolean;
+  metadata?: Record<string, unknown>;
+}
 
 export interface Message {
   role: MessageRole;
-  content: string;
+  content: ContentBlock;
   name?: string;
-  toolCallId?: string;
-  additionalKwargs?: Record<string, unknown>;
+}
+```
+
+#### Tools
+
+```typescript
+// types/tools.ts
+
+import type { ZodTypeAny } from 'zod';
+
+/** JSON Schema for tool parameters */
+export interface JSONSchema {
+  type?: string;
+  properties?: Record<string, JSONSchema>;
+  items?: JSONSchema;
+  required?: string[];
+  description?: string;
+  enum?: unknown[];
+  default?: unknown;
+  [key: string]: unknown;
+}
+
+export interface Tool {
+  name: string;
+  description?: string;
+  /** JSON Schema or Zod schema for parameters */
+  parameters: JSONSchema | ZodTypeAny;
+  /** If true, model must follow schema strictly */
+  strict?: boolean;
+  /** Optional execution function for automatic tool handling */
+  execute?: (args: Record<string, unknown>) => Promise<unknown>;
 }
 
 export interface ToolCall {
   id: string;
   name: string;
-  args: Record<string, unknown>;
+  arguments: Record<string, unknown>;
+  argumentsRaw?: string;
 }
 
-export interface ToolDefinition {
-  name: string;
-  description: string;
-  parameters: Record<string, unknown>; // JSON Schema format
-}
+export type ToolChoice =
+  | 'auto'      // Model decides
+  | 'required'  // Must call at least one tool
+  | 'none'      // Must not call tools
+  | { type: 'tool'; toolName: string };  // Force specific tool
+```
 
-export interface AiMessage extends Message {
-  role: 'ai';
+#### Generation Results
+
+```typescript
+// types/results.ts
+
+export interface GenerateResult {
+  /** Provider-specific response ID */
+  id?: string;
+  /** Generated text content */
+  text: string;
+  /** Why generation stopped */
+  finishReason?: 'stop' | 'length' | 'content-filter' | 'tool-calls' | 'error' | 'other';
+  /** Token usage for monitoring/billing */
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  /** Tool calls made by the model */
   toolCalls?: ToolCall[];
+  /** Raw provider response for debugging */
+  rawResponse?: unknown;
+}
+
+export interface StreamChunk {
+  type: 'text-delta' | 'tool-call-delta' | 'finish' | 'error';
+  /** Text fragment for streaming display */
+  textDelta?: string;
+  /** Partial tool call for progressive assembly */
+  toolCallDelta?: {
+    id?: string;
+    name?: string;
+    argumentsDelta?: string;
+  };
+  finishReason?: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+  error?: unknown;
 }
 ```
 
-#### Chat Model Options
+#### ChatModel Interface
+
+This is the core contract that all chat models implement internally. Community developers using `custom` type provide functions matching this interface.
 
 ```typescript
 // types/chatModel.ts
+
+export interface ChatModel {
+  /** Provider identifier (e.g., 'openai', 'anthropic', 'custom') */
+  provider: string;
+  /** Model identifier (e.g., 'gpt-4', 'claude-3-sonnet') */
+  modelId: string;
+
+  /** Generate a completion (non-streaming) */
+  generate(messages: Message[], config?: ChatModelConfig): Promise<GenerateResult>;
+
+  /** Generate a completion (streaming) */
+  stream(messages: Message[], config?: ChatModelConfig): AsyncIterable<StreamChunk>;
+
+  /** Return a new model instance with tools bound */
+  withTools(tools: Tool[]): ChatModel;
+}
+
+export interface ChatModelConfig {
+  maxTokens?: number;
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  presencePenalty?: number;
+  frequencyPenalty?: number;
+  stopSequences?: string[];
+  seed?: number;
+  timeout?: number;
+  maxRetries?: number;
+  abortSignal?: AbortSignal;
+  headers?: Record<string, string>;
+  tools?: Tool[];
+  toolChoice?: ToolChoice;
+  /** Provider-specific options */
+  providerOptions?: Record<string, unknown>;
+}
+```
+
+#### Chat Model Options (Factory Input)
+
+```typescript
+// types/chatModelOptions.ts
 
 export type ChatModelOptions =
   | OpenAICompatibleModelOptions
@@ -292,39 +512,28 @@ export interface OpenAICompatibleModelOptions {
 
 /**
  * For models with non-OpenAI APIs.
- * Only `invoke` is required. Streaming is optional.
+ * Implement generate() and optionally stream() for full control.
  */
 export interface CustomChatModelOptions {
   type: 'custom';
   
-  // Model identifier
+  /** Model identifier for logging/display */
   name: string;
   
-  // Required: core model logic
-  invoke: (
+  /** Required: generate a response from messages */
+  generate: (
     messages: Message[],
-    options?: InvokeOptions
-  ) => Promise<AiMessage>;
+    config?: ChatModelConfig
+  ) => Promise<GenerateResult>;
   
-  // Optional: streaming support (for real-time token display in chat UI)
+  /** Optional: streaming support for real-time token display */
   stream?: (
     messages: Message[],
-    options?: InvokeOptions
-  ) => AsyncGenerator<StreamChunk>;
+    config?: ChatModelConfig
+  ) => AsyncIterable<StreamChunk>;
   
-  // Optional: bind tools for function calling
-  bindTools?: (tools: ToolDefinition[]) => CustomChatModelOptions;
-}
-
-export interface InvokeOptions {
-  stop?: string[];
-  signal?: AbortSignal;
-}
-
-export interface StreamChunk {
-  content?: string;
-  toolCalls?: Partial<ToolCall>[];
-  finishReason?: 'stop' | 'tool_calls' | 'length';
+  /** Optional: bind tools for function calling */
+  withTools?: (tools: Tool[]) => CustomChatModelOptions;
 }
 ```
 
@@ -339,7 +548,7 @@ export type MemoryOptions =
   | TokenBufferMemoryOptions;
 
 interface BaseMemoryOptions {
-  chatHistory: IChatHistory;
+  chatHistory: ChatHistory;
   memoryKey?: string;       // Default: 'chat_history'
   inputKey?: string;        // Default: 'input'
   outputKey?: string;       // Default: 'output'
@@ -419,7 +628,7 @@ return { response: memory };  // Already wrapped - no manual logWrapper needed
  * Interface for custom chat message storage.
  * Community nodes implement this for their storage backends.
  */
-export interface IChatHistory {
+export interface ChatHistory {
   /** Retrieve all messages from storage. */
   getMessages(): Promise<Message[]>;
 
@@ -447,6 +656,53 @@ const addMessages = chatHistory.addMessages?.bind(chatHistory)
   };
 ```
 
+#### Tool Conversion Utilities
+
+The SDK provides utilities to convert between different tool formats. These are useful when implementing custom models that call provider APIs directly.
+
+```typescript
+// utils/toolConversion.ts (exported)
+
+/**
+ * Convert SDK Tool to OpenAI function format.
+ * Use when calling OpenAI-compatible APIs in custom model implementations.
+ */
+export function toOpenAITool(tool: Tool): {
+  type: 'function';
+  function: { name: string; description?: string; parameters: JSONSchema };
+};
+
+/**
+ * Convert SDK Tool to Anthropic format.
+ * Use when calling Anthropic API in custom model implementations.
+ */
+export function toAnthropicTool(tool: Tool): {
+  name: string;
+  description?: string;
+  input_schema: JSONSchema;
+};
+
+/**
+ * Convert SDK ToolChoice to provider-specific format.
+ */
+export function toProviderToolChoice(
+  choice: ToolChoice,
+  provider: 'openai' | 'anthropic' | 'google'
+): unknown;
+
+/**
+ * Convert Zod schema to JSON Schema (for tool parameters).
+ */
+export function zodToJsonSchema(schema: ZodTypeAny): JSONSchema;
+
+/**
+ * Safely parse tool arguments from JSON string.
+ */
+export function parseToolArguments(argumentsString: string): Record<string, unknown>;
+```
+
+> **Note:** Conversion to LangChain format (`toLangChainTool`) is handled internally by the SDK's adapter layer and is **not exported**. Community developers never need to interact with LangChain types directly.
+
 ---
 
 ## Code Examples
@@ -467,13 +723,13 @@ import {
 } from 'n8n-workflow';
 import {
   createMemory,
-  IChatHistory,
+  ChatHistory,
   type Message,
 } from '@n8n/ai-node-sdk';
 import Redis from 'ioredis';
 
-// Step 1: Implement IChatHistory for Redis
-class RedisChatHistory implements IChatHistory {
+// Step 1: Implement ChatHistory for Redis
+class RedisChatHistory implements ChatHistory {
   private client: Redis;
   private sessionId: string;
   private ttl: number;
@@ -599,8 +855,9 @@ import {
 import {
   createChatModel,
   type Message,
-  type AiMessage,
+  type GenerateResult,
   type StreamChunk,
+  type ChatModelConfig,
 } from '@n8n/ai-node-sdk';
 
 export class LmChatCustomProvider implements INodeType {
@@ -660,44 +917,94 @@ export class LmChatCustomProvider implements INodeType {
       return { response: model };
     }
 
-    // Option B: Custom API - implement invoke/stream
+    // Option B: Custom API - implement generate/stream
     const model = createChatModel(this, {
       type: 'custom',
       name: modelName,
 
-      invoke: async (messages: Message[]): Promise<AiMessage> => {
-        // Use n8n's httpRequest helper for better proxy/retry handling
+      generate: async (messages: Message[], config?: ChatModelConfig): Promise<GenerateResult> => {
+        // Convert structured messages to API format
+        const apiMessages = messages.map((m) => ({
+          role: m.role,
+          content: m.content.type === 'text' ? m.content.text : JSON.stringify(m.content),
+        }));
+
         const data = await this.helpers.httpRequest({
           method: 'POST',
           url: `${baseUrl}/v1/chat`,
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-          },
+          headers: { 'Authorization': `Bearer ${apiKey}` },
           body: {
             model: modelName,
-            messages: messages.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
-            temperature,
+            messages: apiMessages,
+            temperature: config?.temperature ?? temperature,
+            max_tokens: config?.maxTokens,
           },
         });
-        
+
+        const choice = data.choices[0];
         return {
-          role: 'ai',
-          content: data.choices[0].message.content,
-          toolCalls: data.choices[0].message.tool_calls?.map((tc: any) => ({
+          text: choice.message.content ?? '',
+          finishReason: choice.finish_reason === 'stop' ? 'stop' : 'other',
+          usage: data.usage ? {
+            promptTokens: data.usage.prompt_tokens,
+            completionTokens: data.usage.completion_tokens,
+            totalTokens: data.usage.total_tokens,
+          } : undefined,
+          toolCalls: choice.message.tool_calls?.map((tc: any) => ({
             id: tc.id,
             name: tc.function.name,
-            args: JSON.parse(tc.function.arguments),
+            arguments: JSON.parse(tc.function.arguments),
           })),
+          rawResponse: data,
         };
       },
 
-      // Optional: streaming support
-      stream: async function* (messages: Message[]): AsyncGenerator<StreamChunk> {
-        // TODO: Consider providing SDK helper like `createSSEStream(this, options)`
-        // to abstract away low-level fetch/streaming complexity.
+      // Optional: streaming support for real-time token display
+      stream: async function* (messages: Message[], config?: ChatModelConfig): AsyncIterable<StreamChunk> {
+        // Convert messages to API format
+        const apiMessages = messages.map((m) => ({
+          role: m.role,
+          content: m.content.type === 'text' ? m.content.text : JSON.stringify(m.content),
+        }));
+
+        const response = await fetch(`${baseUrl}/v1/chat`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: apiMessages,
+            temperature: config?.temperature ?? temperature,
+            stream: true,
+          }),
+        });
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) return;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          // Parse SSE format: "data: {...}\n\n"
+          for (const line of chunk.split('\n')) {
+            if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+            
+            const data = JSON.parse(line.slice(6));
+            const delta = data.choices[0]?.delta;
+            
+            if (delta?.content) {
+              yield { type: 'text-delta', textDelta: delta.content };
+            }
+          }
+        }
+
+        yield { type: 'finish', finishReason: 'stop' };
       },
     });
 
@@ -714,7 +1021,7 @@ export class LmChatCustomProvider implements INodeType {
 
 1. **Create `@n8n/ai-node-sdk` package**
    - Define all public types and interfaces
-   - Implement `IChatHistory` base class (for memory nodes)
+   - Implement `ChatHistory` base class (for memory nodes)
    - Create factory functions with LangChain adapters
 
 2. **Migrate internal nodes as proof-of-concept**
