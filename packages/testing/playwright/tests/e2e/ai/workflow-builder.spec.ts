@@ -141,7 +141,7 @@ test.describe('Workflow Builder - Generation @auth:owner @ai @capability:proxy',
 		await openBuilderAndClickSuggestion(n8n, 'Daily AI news digest');
 
 		await expect(n8n.aiAssistant.getChatMessagesUser().first()).toBeVisible();
-		await n8n.aiAssistant.waitForStreamingComplete();
+		await n8n.aiBuilder.waitForWorkflowBuildComplete();
 
 		const assistantMessages = n8n.aiAssistant.getChatMessagesAssistant();
 		await expect(assistantMessages.first()).toBeVisible();
