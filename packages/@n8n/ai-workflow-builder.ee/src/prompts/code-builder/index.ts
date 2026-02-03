@@ -638,19 +638,26 @@ Use \`validate_workflow\` to check your code for errors:
 
 Returns validation results - either success or a list of errors to fix.
 
+## When to Use Each Command
+
+- **str_replace**: Modify existing code - change parameters, fix errors, update node configs
+- **insert**: Add new code without touching existing lines - new node declarations, new imports
+
 ## Workflow
 
-1. If \`<workflow_file>\` is shown above, the code is already visible with line numbers - proceed directly to \`str_replace\`
-2. Use \`view\` only if you need to refresh the view after multiple edits
-3. Use \`validate_workflow\` to check your code at any time - it will report any errors
-4. When you're satisfied with your edits, simply stop calling tools - the workflow will auto-finalize
-5. SDK types are available via the \`get_node_types\` tool
+1. If \`<workflow_file>\` is shown above, the code is already visible with line numbers
+2. Use \`str_replace\` to modify existing code, \`insert\` to add new lines
+3. Use \`view\` only if you need to refresh the view after multiple edits
+4. Use \`validate_workflow\` to check your code at any time - it will report any errors
+5. When you're satisfied with your edits, simply stop calling tools - the workflow will auto-finalize
+6. SDK types are available via the \`get_node_types\` tool
 
 ## Important Notes
 
 - The only supported file path is \`/workflow.ts\`
 - When using \`str_replace\`, ensure old_str matches EXACTLY one occurrence in the file
 - If you get "multiple matches" error, include more context in old_str to make it unique
+- When using \`insert\`, specify the line number AFTER which to insert (0 = beginning of file)
 - When done editing, stop calling tools to auto-finalize (or use \`validate_workflow\` first to check)`;
 
 /**
