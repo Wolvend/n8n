@@ -1,7 +1,7 @@
 import { Service } from '@n8n/di';
 import { DataSource, Repository } from '@n8n/typeorm';
 
-import { SecretsProviderConnection } from '../entities';
+import { ProjectSecretsProviderAccess, SecretsProviderConnection } from '../entities';
 
 @Service()
 export class SecretsProviderConnectionRepository extends Repository<SecretsProviderConnection> {
@@ -34,6 +34,37 @@ export class SecretsProviderConnectionRepository extends Repository<SecretsProvi
 			.innerJoin('connection.projectAccess', 'access')
 			.where('access.projectId = :projectId', { projectId })
 			.andWhere('connection.isEnabled = :isEnabled', { isEnabled: true })
+			.getMany();
+	}
+
+	/**
+	 * Find connections accessible to a project:
+	 * - Connections specifically assigned to this project
+	 * - Global connections (those with no project assignments)
+	 */
+	async findByProjectIdWithGlobal(projectId: string): Promise<SecretsProviderConnection[]> {
+		// Subquery to find all connection IDs that have any project assignments
+		const assignedConnectionsSubquery = this.manager
+			.createQueryBuilder(ProjectSecretsProviderAccess, 'assigned')
+			.select('assigned.secretsProviderConnectionId')
+			.getQuery();
+
+		return await this.createQueryBuilder('connection')
+			.leftJoinAndSelect('connection.projectAccess', 'projectAccess')
+			.leftJoinAndSelect('projectAccess.project', 'project')
+			.where(
+				// Connection is assigned to this specific project
+				`connection.id IN (
+					SELECT access.secretsProviderConnectionId
+					FROM project_secrets_provider_access access
+					WHERE access.projectId = :projectId
+				)`,
+				{ projectId },
+			)
+			.orWhere(
+				// OR connection is global (not assigned to any project)
+				`connection.id NOT IN (${assignedConnectionsSubquery})`,
+			)
 			.getMany();
 	}
 }

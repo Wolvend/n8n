@@ -1,17 +1,20 @@
 import { Logger } from '@n8n/backend-common';
-import { Get, ProjectScope, RestController, Middleware } from '@n8n/decorators';
-import {} from '@n8n/decorators/src';
-import { Request, Response, NextFunction } from 'express';
+import type { AuthenticatedRequest } from '@n8n/db';
+import { Get, Middleware, Param, ProjectScope, RestController } from '@n8n/decorators';
+import type { NextFunction, Request, Response } from 'express';
 
 import { BadRequestError } from '@/errors/response-errors/bad-request.error';
 
 import { ExternalSecretsConfig } from './external-secrets.config';
+import { SecretsProvidersConnectionsService } from './secrets-providers-connections.service.ee';
+import type { SecretsProvidersResponses } from './secrets-providers.responses.ee';
 
 @RestController('/secret-providers/projects')
 export class SecretProvidersProjectController {
 	constructor(
 		private readonly config: ExternalSecretsConfig,
 		private readonly logger: Logger,
+		private readonly connectionsService: SecretsProvidersConnectionsService,
 	) {
 		this.logger = this.logger.scoped('external-secrets');
 	}
@@ -27,9 +30,13 @@ export class SecretProvidersProjectController {
 
 	@Get('/:projectId/connections')
 	@ProjectScope('externalSecretsProvider:list')
-	async listConnectionsForAProject() {
-		this.logger.debug('List all connections within a project');
-		//TODO implement
-		return await Promise.resolve([]);
+	async listConnectionsForAProject(
+		_req: AuthenticatedRequest,
+		_res: Response,
+		@Param('projectId') projectId: string,
+	): Promise<SecretsProvidersResponses.StrippedConnection[]> {
+		this.logger.debug('List all connections within a project', { projectId });
+		const connections = await this.connectionsService.listConnectionsForProject(projectId);
+		return connections.map((c) => this.connectionsService.toPublicConnection(c));
 	}
 }

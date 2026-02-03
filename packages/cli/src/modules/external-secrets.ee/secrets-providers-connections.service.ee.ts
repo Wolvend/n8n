@@ -137,6 +137,10 @@ export class SecretsProvidersConnectionsService {
 		return await this.repository.findByProjectId(projectId);
 	}
 
+	async listConnectionsForProject(projectId: string): Promise<SecretsProviderConnection[]> {
+		return await this.repository.findByProjectIdWithGlobal(projectId);
+	}
+
 	toSecretCompletionsResponse(connections: SecretsProviderConnection[]): SecretCompletionsResponse {
 		return Object.fromEntries(
 			connections.map((connection) => [
