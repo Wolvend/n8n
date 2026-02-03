@@ -11,6 +11,7 @@ import AppHeader from '@/app/components/app/AppHeader.vue';
 import AppSidebar from '@/app/components/app/AppSidebar.vue';
 import LogsPanel from '@/features/execution/logs/components/LogsPanel.vue';
 import LoadingView from '@/app/views/LoadingView.vue';
+import { WorkflowIdKey } from '@/app/constants/injectionKeys';
 
 const { layoutProps } = useLayoutProps();
 const assistantStore = useAssistantStore();
@@ -29,6 +30,9 @@ const {
 	initializeWorkflow,
 	cleanup,
 } = useWorkflowInitialization(workflowState);
+
+// Provide workflowId for child components (used by WorkflowExecutionsView, etc.)
+provide(WorkflowIdKey, workflowId);
 
 // Initialize on mount
 onMounted(async () => {

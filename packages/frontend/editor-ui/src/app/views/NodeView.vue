@@ -22,6 +22,7 @@ import { useUIStore } from '@/app/stores/ui.store';
 import CanvasRunWorkflowButton from '@/features/workflows/canvas/components/elements/buttons/CanvasRunWorkflowButton.vue';
 import { useI18n } from '@n8n/i18n';
 import { useWorkflowsStore } from '@/app/stores/workflows.store';
+import { useWorkflowsListStore } from '@/app/stores/workflowsList.store';
 import { useRunWorkflow } from '@/app/composables/useRunWorkflow';
 import { useGlobalLinkActions } from '@/app/composables/useGlobalLinkActions';
 import type {
@@ -142,6 +143,8 @@ import { useExperimentalNdvStore } from '@/features/workflows/canvas/experimenta
 import { injectWorkflowState } from '@/app/composables/useWorkflowState';
 import { useActivityDetection } from '@/app/composables/useActivityDetection';
 import { useCollaborationStore } from '@/features/collaboration/collaboration/collaboration.store';
+import { injectStrict } from '@/app/utils/injectStrict';
+import { WorkflowIdKey } from '@/app/constants/injectionKeys';
 
 import { N8nCallout, N8nCanvasThinkingPill, N8nCanvasCollaborationPill } from '@n8n/design-system';
 
@@ -186,6 +189,7 @@ const clipboard = useClipboard({ onPaste: onClipboardPaste });
 const nodeTypesStore = useNodeTypesStore();
 const uiStore = useUIStore();
 const workflowsStore = useWorkflowsStore();
+const workflowsListStore = useWorkflowsListStore();
 const sourceControlStore = useSourceControlStore();
 const nodeCreatorStore = useNodeCreatorStore();
 const credentialsStore = useCredentialsStore();
@@ -282,10 +286,7 @@ const canOpenNDV = ref(true);
 const hideNodeIssues = ref(false);
 const fallbackNodes = ref<INodeUi[]>([]);
 
-const workflowId = computed(() => {
-	const name = route.params.name;
-	return Array.isArray(name) ? name[0] : name;
-});
+const workflowId = injectStrict(WorkflowIdKey);
 const routeNodeId = computed(() => {
 	const nodeId = route.params.nodeId;
 	return Array.isArray(nodeId) ? nodeId[0] : nodeId;
@@ -629,11 +630,11 @@ function onContextMenuAction(action: ContextMenuAction, nodeIds: string[]) {
 }
 
 function addWorkflowSavedEventBindings() {
-	canvasEventBus.on('saved:workflow', npsSurveyStore.fetchPromptsData);
+	canvasEventBus.on('saved:workflow', npsSurveyStore.showNpsSurveyIfPossible);
 }
 
 function removeWorkflowSavedEventBindings() {
-	canvasEventBus.off('saved:workflow', npsSurveyStore.fetchPromptsData);
+	canvasEventBus.off('saved:workflow', npsSurveyStore.showNpsSurveyIfPossible);
 	canvasEventBus.off('saved:workflow', onSaveFromWithinExecutionDebug);
 }
 
@@ -1040,7 +1041,7 @@ function onClickReplaceNode(nodeId: string) {
 
 const workflowPermissions = computed(() => {
 	return workflowId.value
-		? getResourcePermissions(workflowsStore.getWorkflowById(workflowId.value)?.scopes).workflow
+		? getResourcePermissions(workflowsListStore.getWorkflowById(workflowId.value)?.scopes).workflow
 		: {};
 });
 
@@ -1338,7 +1339,7 @@ async function onSourceControlPull() {
 		]);
 
 		if (workflowId.value && !uiStore.stateIsDirty) {
-			const workflowData = await workflowsStore.fetchWorkflow(workflowId.value);
+			const workflowData = await workflowsListStore.fetchWorkflow(workflowId.value);
 			if (workflowData) {
 				await openWorkflow(workflowData);
 			}
