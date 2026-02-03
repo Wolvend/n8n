@@ -159,7 +159,11 @@ const onAddCustomRoleClick = () => {
 								</N8nText>
 							</template>
 							<template #item-trailing>
-								<N8nBadge v-if="item.disabled" theme="warning" :class="$style.upgradeBadge">
+								<N8nBadge
+									v-if="item.disabled && hasCustomRolesLicense"
+									theme="warning"
+									:class="$style.upgradeBadge"
+								>
 									{{ i18n.baseText('generic.upgrade') }}
 								</N8nBadge>
 							</template>
@@ -169,22 +173,25 @@ const onAddCustomRoleClick = () => {
 			</template>
 
 			<!-- Section label with upgrade badge for custom roles -->
-			<template #item-trailing="{ item }">
-				<N8nBadge
-					v-if="
-						item.type === 'label' &&
-						item.label === i18n.baseText('projects.settings.role.selector.section.custom') &&
-						!hasCustomRolesLicense
-					"
-					theme="warning"
-					:class="$style.sectionUpgradeBadge"
-					@click.stop="
-						closeDropdown();
-						upgradeModalVisible = true;
-					"
-				>
-					{{ i18n.baseText('generic.upgrade') }}
-				</N8nBadge>
+			<template #label="{ item }">
+				<span :class="$style.sectionLabelContent">
+					{{ item.label }}
+					<N8nBadge
+						v-if="
+							item.label === i18n.baseText('projects.settings.role.selector.section.custom') &&
+							!hasCustomRolesLicense
+						"
+						theme="default"
+						:class="$style.sectionUpgradeBadge"
+						@click.stop="
+							closeDropdown();
+							upgradeModalVisible = true;
+						"
+					>
+						<N8nIcon icon="lock" size="xsmall" />
+						{{ i18n.baseText('generic.upgrade') }}
+					</N8nBadge>
+				</span>
 			</template>
 
 			<!-- Footer with "+ Add custom role" link -->
@@ -232,8 +239,17 @@ const onAddCustomRoleClick = () => {
 	cursor: pointer;
 }
 
+.sectionLabelContent {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing--3xs);
+}
+
 .sectionUpgradeBadge {
 	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--spacing--5xs);
 }
 
 .addCustomRoleButton {

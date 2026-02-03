@@ -156,7 +156,9 @@ const groups = computed<SelectItemProps[]>(() => {
 					<SelectGroup>
 						<template v-for="(item, index) in groups" :key="`group-${index}`">
 							<SelectLabel v-if="item.type === 'label'" :class="[$style.selectLabel, labelSize]">
-								{{ item.label }}
+								<slot name="label" :item="item">
+									{{ item.label }}
+								</slot>
 							</SelectLabel>
 
 							<SelectSeparator
