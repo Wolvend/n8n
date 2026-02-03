@@ -43,28 +43,33 @@ export class SecretsProviderConnectionRepository extends Repository<SecretsProvi
 	 * - Global connections (those with no project assignments)
 	 */
 	async findByProjectIdWithGlobal(projectId: string): Promise<SecretsProviderConnection[]> {
-		// Subquery to find all connection IDs that have any project assignments
-		const assignedConnectionsSubquery = this.manager
-			.createQueryBuilder(ProjectSecretsProviderAccess, 'assigned')
-			.select('assigned.secretsProviderConnectionId')
-			.getQuery();
-
 		return await this.createQueryBuilder('connection')
 			.leftJoinAndSelect('connection.projectAccess', 'projectAccess')
 			.leftJoinAndSelect('projectAccess.project', 'project')
 			.where(
-				// Connection is assigned to this specific project
-				`connection.id IN (
-					SELECT access.secretsProviderConnectionId
-					FROM project_secrets_provider_access access
-					WHERE access.projectId = :projectId
-				)`,
+				(qb) => {
+					// Connection is assigned to this project
+					const subQuery = qb
+						.subQuery()
+						.select('1')
+						.from(ProjectSecretsProviderAccess, 'access')
+						.where('access.secretsProviderConnectionId = connection.id')
+						.andWhere('access.projectId = :projectId')
+						.getQuery();
+					return `EXISTS (${subQuery})`;
+				},
 				{ projectId },
 			)
-			.orWhere(
-				// OR connection is global (not assigned to any project)
-				`connection.id NOT IN (${assignedConnectionsSubquery})`,
-			)
+			.orWhere((qb) => {
+				// Connection is global (no project assignments)
+				const subQuery = qb
+					.subQuery()
+					.select('1')
+					.from(ProjectSecretsProviderAccess, 'access')
+					.where('access.secretsProviderConnectionId = connection.id')
+					.getQuery();
+				return `NOT EXISTS (${subQuery})`;
+			})
 			.getMany();
 	}
 }
