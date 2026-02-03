@@ -69,7 +69,6 @@ export class LangchainAdapter<
 				model: this.genericModel.modelId,
 				provider: this.genericModel.provider,
 			},
-			additional_kwargs: result.additional_kwargs ?? {},
 			id: result.id,
 			tool_calls,
 		});

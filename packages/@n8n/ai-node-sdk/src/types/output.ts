@@ -25,10 +25,6 @@ export interface GenerateResult {
 	 */
 	message?: Message;
 	/**
-	 * Additional provider-specific data
-	 */
-	additional_kwargs?: Record<string, unknown>;
-	/**
 	 * Metadata about the response from the provider
 	 */
 	providerMetadata?: Record<string, unknown>;
