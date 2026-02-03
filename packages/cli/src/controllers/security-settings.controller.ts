@@ -3,11 +3,15 @@ import { Body, Post, Get, RestController, GlobalScope } from '@n8n/decorators';
 import type { Response } from 'express';
 
 import { UpdateSecuritySettingsDto } from '@/dto/security-settings.dto';
+import { EventService } from '@/events/event.service';
 import { SecuritySettingsService } from '@/services/security-settings.service';
 
 @RestController('/settings/security')
 export class SecuritySettingsController {
-	constructor(private readonly securitySettingsService: SecuritySettingsService) {}
+	constructor(
+		private readonly securitySettingsService: SecuritySettingsService,
+		private readonly eventService: EventService,
+	) {}
 
 	@GlobalScope('securitySettings:manage')
 	@Get('/')
@@ -21,11 +25,17 @@ export class SecuritySettingsController {
 	@GlobalScope('securitySettings:manage')
 	@Post('/')
 	async updateSecuritySettings(
-		_req: AuthenticatedRequest,
+		req: AuthenticatedRequest,
 		_res: Response,
 		@Body dto: UpdateSecuritySettingsDto,
 	) {
 		await this.securitySettingsService.setPersonalSpacePublishing(dto.personalSpacePublishing);
+
+		this.eventService.emit('instance-policies-updated', {
+			userId: req.user.id,
+			settingName: 'workflow_publishing',
+			value: dto.personalSpacePublishing,
+		});
 
 		return { personalSpacePublishing: dto.personalSpacePublishing };
 	}
