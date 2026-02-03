@@ -443,7 +443,7 @@ export function useWorkflowState() {
 	}
 
 	// Create node issues state
-	const nodeIssuesState = useWorkflowNodeIssuesState(updateNodeAtIndex);
+	const nodeIssuesState = useWorkflowNodeIssuesState({ updateNodeAtIndex });
 
 	return {
 		// Workflow editing state

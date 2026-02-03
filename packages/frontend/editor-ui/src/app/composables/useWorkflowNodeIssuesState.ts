@@ -40,7 +40,12 @@ declare namespace HttpRequestNode {
 
 type UpdateNodeAtIndexFn = (nodeIndex: number, nodeData: Partial<INodeUi>) => boolean;
 
-export function useWorkflowNodeIssuesState(updateNodeAtIndex: UpdateNodeAtIndexFn) {
+interface UseWorkflowNodeIssuesStateOptions {
+	updateNodeAtIndex: UpdateNodeAtIndexFn;
+}
+
+export function useWorkflowNodeIssuesState(options: UseWorkflowNodeIssuesStateOptions) {
+	const { updateNodeAtIndex } = options;
 	const credentialsStore = useCredentialsStore();
 	const nodeTypesStore = useNodeTypesStore();
 	const workflowsStore = useWorkflowsStore();
