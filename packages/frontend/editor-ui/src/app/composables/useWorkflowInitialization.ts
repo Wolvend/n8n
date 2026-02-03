@@ -84,7 +84,7 @@ export function useWorkflowInitialization(workflowState: WorkflowState) {
 			if (settingsStore.isPreviewMode && isDemoRoute.value) return [];
 
 			const promises: Array<Promise<unknown>> = [
-				workflowsStore.fetchActiveWorkflows(),
+				workflowsListStore.fetchActiveWorkflows(),
 				credentialsStore.fetchCredentialTypes(true),
 				loadCredentials(),
 			];
@@ -94,7 +94,7 @@ export function useWorkflowInitialization(workflowState: WorkflowState) {
 			}
 
 			if (settingsStore.isEnterpriseFeatureEnabled[EnterpriseEditionFeature.ExternalSecrets]) {
-				promises.push(externalSecretsStore.fetchAllSecrets());
+				promises.push(externalSecretsStore.fetchGlobalSecrets());
 			}
 
 			return promises;
@@ -162,7 +162,7 @@ export function useWorkflowInitialization(workflowState: WorkflowState) {
 
 	async function initializeWorkspaceForExistingWorkflow(id: string) {
 		try {
-			const workflowData = await workflowsStore.fetchWorkflow(id);
+			const workflowData = await workflowsListStore.fetchWorkflow(id);
 
 			await openWorkflow(workflowData);
 
