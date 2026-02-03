@@ -75,6 +75,8 @@ export const SETUP_PANEL = createExperiment('069_setup_panel', {
 	variant: 'variant',
 });
 
+export const IMPROVED_CREDENTIALS_EXPERIMENT = createExperiment('071_improved_credentials');
+
 export const EXPERIMENTS_TO_TRACK = [
 	EXTRA_TEMPLATE_LINKS_EXPERIMENT.name,
 	TEMPLATE_ONBOARDING_EXPERIMENT.name,
@@ -90,4 +92,5 @@ export const EXPERIMENTS_TO_TRACK = [
 	SIDEBAR_EXPANDED_EXPERIMENT.name,
 	EMPTY_STATE_EXPERIMENT.name,
 	SETUP_PANEL.name,
+	IMPROVED_CREDENTIALS_EXPERIMENT.name,
 ];
