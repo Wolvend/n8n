@@ -39,6 +39,7 @@ import type { ProjectSharingData } from '@/features/collaboration/projects/proje
 import { clearPopupWindowState } from '@/features/execution/executions/executions.utils';
 import { useDocumentTitle } from './useDocumentTitle';
 import { useWorkflowStateStore } from '@/app/stores/workflowState.store';
+import { useWorkflowNodeIssuesState } from './useWorkflowNodeIssuesState';
 import { isObject } from '@/app/utils/objectUtils';
 import findLast from 'lodash/findLast';
 import { useNodeTypesStore } from '@/app/stores/nodeTypes.store';
@@ -486,6 +487,15 @@ export function useWorkflowState(workflowId: string) {
 	}
 
 	////
+	// Node issues state
+	////
+
+	const nodeIssuesState = useWorkflowNodeIssuesState({
+		setNodeIssue,
+		updateNodeProperties,
+	});
+
+	////
 	// Workflow initialization and update
 	////
 
@@ -607,6 +617,9 @@ export function useWorkflowState(workflowId: string) {
 
 		// reexport
 		executingNode: workflowStateStore.executingNode,
+
+		// Node issues state
+		...nodeIssuesState,
 	};
 }
 

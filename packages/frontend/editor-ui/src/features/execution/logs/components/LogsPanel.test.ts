@@ -62,8 +62,7 @@ vi.mock('@/app/composables/useNodeHelpers', async (importOriginal) => {
 	const actual = await importOriginal<typeof useNodeHelpersModule>();
 	return {
 		...actual,
-		useNodeHelpers: (opts = {}) =>
-			actual.useNodeHelpers({ ...opts, workflowState: workflowStateRef.current }),
+		useNodeHelpers: () => actual.useNodeHelpers(),
 	};
 });
 

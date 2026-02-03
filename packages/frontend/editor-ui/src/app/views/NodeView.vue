@@ -106,7 +106,6 @@ import { useNpsSurveyStore } from '@/app/stores/npsSurvey.store';
 import { useTelemetry } from '@/app/composables/useTelemetry';
 import { useHistoryStore } from '@/app/stores/history.store';
 import { useProjectsStore } from '@/features/collaboration/projects/projects.store';
-import { useNodeHelpers } from '@/app/composables/useNodeHelpers';
 import { useWorkflowHelpers } from '@/app/composables/useWorkflowHelpers';
 import { useExecutionDebugging } from '@/features/execution/executions/composables/useExecutionDebugging';
 import { useUsersStore } from '@/features/settings/users/users.store';
@@ -192,7 +191,6 @@ const workflowSaving = useWorkflowSaving({
 		canvasEventBus.emit('saved:workflow', { isFirstSave });
 	},
 });
-const nodeHelpers = useNodeHelpers();
 const workflowHelpers = useWorkflowHelpers();
 const clipboard = useClipboard({ onPaste: onClipboardPaste });
 
@@ -563,9 +561,9 @@ async function initializeWorkspaceForExistingWorkflow(id: string) {
 }
 
 function updateNodesIssues() {
-	nodeHelpers.updateNodesInputIssues();
-	nodeHelpers.updateNodesCredentialsIssues();
-	nodeHelpers.updateNodesParameterIssues();
+	workflowState.updateNodesInputIssues();
+	workflowState.updateNodesCredentialsIssues();
+	workflowState.updateNodesParameterIssues();
 }
 
 /**
