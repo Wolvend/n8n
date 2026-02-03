@@ -35,6 +35,7 @@ const validatedCredentials = ref<Record<string, boolean>>({});
 const isValidatingCredentials = ref(false);
 const credentialsFetched = ref(false);
 const pendingCredentialType = ref<string | null>(null);
+const pendingCredentialId = ref<string | null>(null);
 const appToInstall = ref<AppEntry | null>(null);
 
 const firstName = computed(() => usersStore.currentUser?.firstName ?? '');
@@ -84,6 +85,9 @@ const handleCardClick = (appEntry: AppEntry) => {
 			(c) => c.type === credentialType.name,
 		);
 		if (existingCredential) {
+			// Track the credential being edited for re-validation on modal close
+			pendingCredentialType.value = credentialType.name;
+			pendingCredentialId.value = existingCredential.id;
 			uiStore.openExistingCredential(existingCredential.id);
 			return;
 		}
@@ -107,6 +111,7 @@ const openCredentialModal = (credentialTypeName: string) => {
 		(c) => c.type === credentialTypeName,
 	).length;
 	pendingCredentialType.value = credentialTypeName;
+	pendingCredentialId.value = null; // null indicates creating new credential
 	uiStore.openNewCredential(credentialTypeName, true);
 };
 
@@ -173,11 +178,29 @@ const validateCredential = async (credentialId: string, credentialTypeName: stri
 		const credentialData = await credentialsStore.getCredentialData({ id: credentialId });
 
 		if (credentialData && typeof credentialData.data === 'object') {
-			const testResult = await credentialsStore.testCredential(
-				credentialData as ICredentialsDecrypted,
+			// Check if this is an OAuth credential type
+			const credentialType = credentialsStore.getCredentialTypeByName(credentialTypeName);
+			const isOAuth = credentialType?.extends?.some((ext) =>
+				['oAuth2Api', 'oAuth1Api', 'googleOAuth2Api', 'microsoftOAuth2Api'].includes(ext),
 			);
 
-			if (testResult.status !== 'OK') {
+			let isValid = false;
+			if (isOAuth) {
+				// For OAuth credentials, check if oauthTokenData exists (backend returns true when connected)
+				isValid = Boolean(credentialData.data.oauthTokenData);
+			} else {
+				// For non-OAuth credentials, use the test endpoint
+				const testResult = await credentialsStore.testCredential(
+					credentialData as ICredentialsDecrypted,
+				);
+				isValid = testResult.status === 'OK';
+			}
+
+			if (isValid) {
+				// Remove from invalid credentials if it was previously invalid
+				const { [credentialTypeName]: _, ...rest } = invalidCredentials.value;
+				invalidCredentials.value = rest;
+			} else {
 				invalidCredentials.value = { ...invalidCredentials.value, [credentialTypeName]: true };
 			}
 		}
@@ -249,16 +272,23 @@ const isCredentialModalOpen = computed(() => uiStore.isModalActiveById[CREDENTIA
 
 watch(isCredentialModalOpen, async (isOpen, wasOpen) => {
 	if (!isOpen && wasOpen && pendingCredentialType.value) {
-		const credentialsOfType = credentialsStore.allCredentials.filter(
-			(c) => c.type === pendingCredentialType.value,
-		);
+		if (pendingCredentialId.value) {
+			// Re-validate edited credential
+			await validateCredential(pendingCredentialId.value, pendingCredentialType.value);
+		} else {
+			// Check if a new credential was created
+			const credentialsOfType = credentialsStore.allCredentials.filter(
+				(c) => c.type === pendingCredentialType.value,
+			);
 
-		if (credentialsOfType.length > credentialsCountBefore.value) {
-			const newCredential = credentialsOfType[credentialsOfType.length - 1];
-			await validateCredential(newCredential.id, pendingCredentialType.value);
+			if (credentialsOfType.length > credentialsCountBefore.value) {
+				const newCredential = credentialsOfType[credentialsOfType.length - 1];
+				await validateCredential(newCredential.id, pendingCredentialType.value);
+			}
 		}
 
 		pendingCredentialType.value = null;
+		pendingCredentialId.value = null;
 	}
 });
 </script>
