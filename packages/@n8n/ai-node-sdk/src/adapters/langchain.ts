@@ -7,9 +7,10 @@ import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
 import type { ChatResult } from '@langchain/core/outputs';
 import { ChatGenerationChunk } from '@langchain/core/outputs';
 import type { Runnable } from '@langchain/core/runnables';
-import { convertToN8nMessage } from 'src/converters/message';
-import { toN8nTool } from 'src/converters/tool';
-import type { ChatModel, ChatModelConfig } from 'src/types/chat-model';
+
+import { convertToN8nMessage } from '../converters/message';
+import { toN8nTool } from '../converters/tool';
+import type { ChatModel, ChatModelConfig } from '../types/chat-model';
 
 export class LangchainAdapter<
 	CallOptions extends ChatModelConfig = ChatModelConfig,

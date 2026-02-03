@@ -10,6 +10,7 @@ import {
 	type Tool,
 	type ToolCall,
 } from '../../src';
+import { parseSSEStream } from '../../src/utils/sse';
 
 // =============================================================================
 // OpenAI API Types
@@ -207,47 +208,28 @@ async function openAIFetchStream(
 }
 
 /**
- * Parse Server-Sent Events (SSE) stream
+ * Parse OpenAI streaming events from SSE stream
+ * Uses the robust SSE parser and extracts OpenAI-specific event data
  */
-async function* parseSSEStream(body: ReadableStream<Uint8Array>): AsyncIterable<OpenAIStreamEvent> {
-	const reader = body.getReader();
-	const decoder = new TextDecoder();
-	let buffer = '';
+async function* parseOpenAIStreamEvents(
+	body: ReadableStream<Uint8Array>,
+): AsyncIterable<OpenAIStreamEvent> {
+	for await (const message of parseSSEStream(body)) {
+		// OpenAI sends events in the data field
+		if (!message.data) continue;
 
-	try {
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
+		// Skip [DONE] marker
+		if (message.data === '[DONE]') continue;
 
-			buffer += decoder.decode(value, { stream: true });
-			const lines = buffer.split('\n');
-			buffer = lines.pop() ?? '';
-
-			for (const line of lines) {
-				const trimmed = line.trim();
-
-				// Skip empty lines and comments
-				if (!trimmed || trimmed.startsWith(':')) continue;
-
-				// Parse SSE data lines
-				if (trimmed.startsWith('data: ')) {
-					const data = trimmed.slice(6);
-
-					// Skip [DONE] marker
-					if (data === '[DONE]') continue;
-
-					try {
-						const event = JSON.parse(data);
-						yield event as OpenAIStreamEvent;
-					} catch (e) {
-						// Skip invalid JSON
-						console.warn('Failed to parse SSE event:', data);
-					}
-				}
+		try {
+			const event = JSON.parse(message.data);
+			yield event as OpenAIStreamEvent;
+		} catch (e) {
+			// Skip invalid JSON - log warning in development
+			if (process.env.NODE_ENV !== 'production') {
+				console.warn('Failed to parse OpenAI SSE event:', message.data);
 			}
 		}
-	} finally {
-		reader.releaseLock();
 	}
 }
 
@@ -586,7 +568,7 @@ export class OpenAIChatModel extends BaseChatModel<OpenAIChatModelConfig> {
 		const toolCallBuffers: Record<number, { name: string; arguments: string }> = {};
 
 		// Parse SSE stream
-		for await (const event of parseSSEStream(streamBody)) {
+		for await (const event of parseOpenAIStreamEvents(streamBody)) {
 			const type = event.type;
 
 			if (type === 'response.output_text.delta') {
