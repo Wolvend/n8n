@@ -17,8 +17,8 @@ describe('node-validation', () => {
 			id: 'node-1',
 			typeVersion: 1,
 			position: [0, 0],
-			credentials,
-			parameters: parameters || {},
+			credentials: credentials as INode['credentials'],
+			parameters: (parameters || {}) as INode['parameters'],
 		});
 
 		const createNodeType = (credentials?: INodeTypeDescription['credentials']): INodeType => ({
@@ -285,7 +285,7 @@ describe('node-validation', () => {
 				},
 				trigger: async () => ({
 					closeFunction: async () => {},
-					manualTriggerFunction: async () => ({ runIndex: 0, executionData: {} }),
+					manualTriggerFunction: async () => {},
 				}),
 			};
 
@@ -324,7 +324,7 @@ describe('node-validation', () => {
 					outputs: ['main'],
 					properties: [],
 				},
-				poll: async () => ({ workflowData: [[]] }),
+				poll: async () => [[]],
 			};
 
 			expect(isTriggerLikeNode(nodeType)).toBe(true);
@@ -343,7 +343,7 @@ describe('node-validation', () => {
 					outputs: ['main'],
 					properties: [],
 				},
-				execute: async () => ({ runData: [] }),
+				execute: async () => [[]],
 			};
 
 			expect(isTriggerLikeNode(nodeType)).toBe(false);
@@ -362,7 +362,7 @@ describe('node-validation', () => {
 					outputs: ['main'],
 					properties: [],
 				},
-				execute: async () => ({ runData: [] }),
+				execute: async () => [[]],
 			};
 
 			expect(isTriggerLikeNode(nodeType)).toBe(false);
