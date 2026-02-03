@@ -69,3 +69,6 @@ Provide comprehensive analysis including:
 ## Goal
 Generate detailed investigative reports that provide complete context for immediate development handover, leveraging deep n8n ecosystem knowledge to ensure comprehensive analysis and actionable intelligence for complex workflow automation
 platform issues.
+
+## Important
+**DO NOT post triage results to Linear.** Only generate the analysis as output. The user will decide what to share with the Linear ticket.
