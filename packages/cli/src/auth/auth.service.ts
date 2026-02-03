@@ -103,7 +103,7 @@ export class AuthService {
 		const cacheKey = this.cacheKeyForInvalidToken(token);
 
 		try {
-			if (await this.cacheService.exists(cacheKey)) return true;
+			if ((await this.cacheService.get(cacheKey)) !== undefined) return true;
 		} catch {
 			// fall through
 		}

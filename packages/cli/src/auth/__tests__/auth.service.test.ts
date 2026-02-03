@@ -70,7 +70,7 @@ describe('AuthService', () => {
 		globalConfig.auth.cookie = { secure: true, samesite: 'lax' };
 		license.isWithinUsersLimit.mockReturnValue(true);
 		// cache miss, falls through to DB
-		cacheService.exists.mockResolvedValue(false);
+		cacheService.get.mockResolvedValue(undefined);
 		cacheService.set.mockResolvedValue(undefined);
 	});
 
