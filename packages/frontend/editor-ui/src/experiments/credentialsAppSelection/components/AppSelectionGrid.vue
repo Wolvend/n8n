@@ -21,8 +21,8 @@ const MIN_SEARCH_SCORE = 0;
 
 const props = defineProps<{
 	appEntries: AppEntry[];
-	invalidCredentials: Set<string>;
-	validatedCredentials: Set<string>;
+	invalidCredentials: Record<string, boolean>;
+	validatedCredentials: Record<string, boolean>;
 	searchQuery: string;
 	loading?: boolean;
 	isOwner?: boolean;
@@ -70,10 +70,12 @@ const getCardState = (entry: AppEntry): CardState => {
 
 const isCredentialInvalid = (entry: AppEntry): boolean => {
 	const key = entry.credentialType?.name ?? entry.app.name;
-	if (props.invalidCredentials.has(key)) {
+	const hasExistingCredential = hasCredential(entry);
+
+	if (props.invalidCredentials[key]) {
 		return true;
 	}
-	if (hasCredential(entry) && !props.validatedCredentials.has(key)) {
+	if (hasExistingCredential && !props.validatedCredentials[key]) {
 		return true;
 	}
 	return false;
@@ -81,7 +83,7 @@ const isCredentialInvalid = (entry: AppEntry): boolean => {
 
 const isCredentialValidated = (entry: AppEntry): boolean => {
 	const key = entry.credentialType?.name ?? entry.app.name;
-	return props.validatedCredentials.has(key) || hasCredential(entry);
+	return props.validatedCredentials[key] || hasCredential(entry);
 };
 
 const handleCardClick = (entry: AppEntry) => {
@@ -135,10 +137,13 @@ const preloadIcons = async (entries: AppEntry[]) => {
 };
 
 watch(
-	() => props.appEntries,
-	async (entries) => {
-		if (entries.length > 0 && !props.loading) {
+	() => ({ entries: props.appEntries, loading: props.loading }),
+	async ({ entries, loading }, oldValue) => {
+		// Reset icons loaded state when entries change
+		if (oldValue && entries !== oldValue.entries) {
 			iconsLoaded.value = false;
+		}
+		if (entries.length > 0 && !loading && !iconsLoaded.value) {
 			await preloadIcons(entries);
 		}
 	},

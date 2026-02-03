@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, reactive, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { N8nButton, N8nHeading, N8nInput, N8nText, N8nIcon } from '@n8n/design-system';
 import { useI18n } from '@n8n/i18n';
 import { useDebounce } from '@/app/composables/useDebounce';
@@ -29,13 +29,20 @@ const { appEntries, isLoading } = useAppCredentials();
 const APP_INSTALL_MODAL_KEY = 'appInstallModal';
 
 const searchQuery = ref('');
-const invalidCredentials = reactive(new Set<string>());
-const validatedCredentials = reactive(new Set<string>());
+// Using ref with Record for better Vue reactivity than reactive(new Set())
+const invalidCredentials = ref<Record<string, boolean>>({});
+const validatedCredentials = ref<Record<string, boolean>>({});
+const isValidatingCredentials = ref(false);
+const credentialsFetched = ref(false);
 const pendingCredentialType = ref<string | null>(null);
 const appToInstall = ref<AppEntry | null>(null);
 
 const firstName = computed(() => usersStore.currentUser?.firstName ?? '');
 const isOwner = computed(() => usersStore.isInstanceOwner);
+
+const gridLoading = computed(
+	() => isLoading.value || !credentialsFetched.value || isValidatingCredentials.value,
+);
 
 const heading = computed(() => {
 	if (firstName.value) {
@@ -118,7 +125,7 @@ const handleNodeInstalled = (credentialTypeName: string) => {
 const handleContinue = () => {
 	const connectedApps = credentialsStore.allCredentials.map((credential) => ({
 		credential_type: credential.type,
-		is_valid: !invalidCredentials.has(credential.type),
+		is_valid: !invalidCredentials.value[credential.type],
 	}));
 	appSelectionStore.trackCompleted(connectedApps);
 	emit('continue');
@@ -132,15 +139,15 @@ watch(
 	(credentials) => {
 		const existingTypes = new Set(credentials.map((c) => c.type));
 
-		for (const typeName of invalidCredentials) {
+		for (const typeName of Object.keys(invalidCredentials.value)) {
 			if (!existingTypes.has(typeName)) {
-				invalidCredentials.delete(typeName);
+				delete invalidCredentials.value[typeName];
 			}
 		}
 
-		for (const typeName of validatedCredentials) {
+		for (const typeName of Object.keys(validatedCredentials.value)) {
 			if (!existingTypes.has(typeName)) {
-				validatedCredentials.delete(typeName);
+				delete validatedCredentials.value[typeName];
 			}
 		}
 	},
@@ -164,33 +171,43 @@ const handleKeyDown = (event: KeyboardEvent) => {
 const validateCredential = async (credentialId: string, credentialTypeName: string) => {
 	try {
 		const credentialData = await credentialsStore.getCredentialData({ id: credentialId });
+
 		if (credentialData && typeof credentialData.data === 'object') {
 			const testResult = await credentialsStore.testCredential(
 				credentialData as ICredentialsDecrypted,
 			);
+
 			if (testResult.status !== 'OK') {
-				invalidCredentials.add(credentialTypeName);
+				invalidCredentials.value = { ...invalidCredentials.value, [credentialTypeName]: true };
 			}
 		}
 	} catch {
-		invalidCredentials.add(credentialTypeName);
+		invalidCredentials.value = { ...invalidCredentials.value, [credentialTypeName]: true };
 	} finally {
-		validatedCredentials.add(credentialTypeName);
+		validatedCredentials.value = { ...validatedCredentials.value, [credentialTypeName]: true };
 	}
 };
 
 const validateExistingCredentials = async () => {
-	const credentials = credentialsStore.allCredentials;
-	const appCredentialTypes = new Set(
-		appEntries.value.map((entry) => entry.credentialType?.name).filter(Boolean),
-	);
-	const credentialsToValidate = credentials.filter((c) => appCredentialTypes.has(c.type));
+	try {
+		const credentials = credentialsStore.allCredentials;
+		const appCredentialTypes = new Set(
+			appEntries.value.map((entry) => entry.credentialType?.name).filter(Boolean),
+		);
+		const credentialsToValidate = credentials.filter((c) => appCredentialTypes.has(c.type));
 
-	await Promise.all(
-		credentialsToValidate.map(async (credential) => {
-			await validateCredential(credential.id, credential.type);
-		}),
-	);
+		if (credentialsToValidate.length === 0) {
+			return;
+		}
+
+		await Promise.all(
+			credentialsToValidate.map(async (credential) => {
+				await validateCredential(credential.id, credential.type);
+			}),
+		);
+	} finally {
+		isValidatingCredentials.value = false;
+	}
 };
 
 onMounted(async () => {
@@ -198,16 +215,26 @@ onMounted(async () => {
 	document.addEventListener('keydown', handleKeyDownCapture, true);
 	document.addEventListener('keydown', handleKeyDown);
 	await credentialsStore.fetchAllCredentials();
+	credentialsFetched.value = true;
 });
 
 const hasValidatedOnLoad = ref(false);
 
+// Wait for BOTH app entries to load AND credentials to be fetched before validating
 watch(
-	() => isLoading.value,
-	async (loading) => {
-		if (!loading && !hasValidatedOnLoad.value) {
+	() => ({ loading: isLoading.value, fetched: credentialsFetched.value }),
+	async ({ loading, fetched }) => {
+		if (!loading && fetched && !hasValidatedOnLoad.value) {
 			hasValidatedOnLoad.value = true;
-			await validateExistingCredentials();
+			// Set validating state synchronously BEFORE the async validation
+			// to prevent a gap where neither isLoading nor isValidatingCredentials is true
+			isValidatingCredentials.value = true;
+			try {
+				await validateExistingCredentials();
+			} catch {
+				// Ensure loading state is cleared even on unexpected errors
+				isValidatingCredentials.value = false;
+			}
 		}
 	},
 	{ immediate: true },
@@ -281,7 +308,7 @@ watch(isCredentialModalOpen, async (isOpen, wasOpen) => {
 				:invalid-credentials="invalidCredentials"
 				:validated-credentials="validatedCredentials"
 				:search-query="searchQuery"
-				:loading="isLoading"
+				:loading="gridLoading"
 				:is-owner="isOwner"
 				@card-click="handleCardClick"
 			/>
