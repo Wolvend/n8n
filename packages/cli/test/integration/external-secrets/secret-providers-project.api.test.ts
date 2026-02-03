@@ -7,9 +7,10 @@ import {
 } from '@n8n/db';
 import { Container } from '@n8n/di';
 import { mock } from 'jest-mock-extended';
+import { Response } from 'superagent';
 
-import { ExternalSecretsConfig } from '@/modules/external-secrets.ee/external-secrets.config';
 import { ExternalSecretsProviders } from '@/modules/external-secrets.ee/external-secrets-providers.ee';
+import { ExternalSecretsConfig } from '@/modules/external-secrets.ee/external-secrets.config';
 
 import { MockProviders } from '../../shared/external-secrets/utils';
 import { createAdmin, createMember, createOwner } from '../shared/db/users';
@@ -37,8 +38,11 @@ describe('Secret Providers Project API', () => {
 	let ownerAgent: SuperAgentTest;
 	let adminAgent: SuperAgentTest;
 	let memberAgent: SuperAgentTest;
+
 	let teamProject1: Project;
 	let teamProject2: Project;
+	let emptyProject: Project;
+
 	let connectionRepository: SecretsProviderConnectionRepository;
 	let projectAccessRepository: ProjectSecretsProviderAccessRepository;
 
@@ -54,13 +58,10 @@ describe('Secret Providers Project API', () => {
 
 		teamProject1 = await createTeamProject('Engineering');
 		teamProject2 = await createTeamProject('Marketing');
+		emptyProject = await createTeamProject('Empty');
 
 		connectionRepository = Container.get(SecretsProviderConnectionRepository);
 		projectAccessRepository = Container.get(ProjectSecretsProviderAccessRepository);
-	});
-
-	beforeEach(async () => {
-		await testDb.truncate(['SecretsProviderConnection', 'ProjectSecretsProviderAccess']);
 	});
 
 	async function createProviderConnection(
@@ -91,9 +92,11 @@ describe('Secret Providers Project API', () => {
 
 	describe('GET /secret-providers/projects/:projectId/connections', () => {
 		describe('Authorization', () => {
-			beforeEach(async () => {
-				await createProviderConnection('global-connection', []);
-				await createProviderConnection('test-connection', [teamProject1.id]);
+			beforeAll(async () => {
+				await Promise.all([
+					createProviderConnection('global-connection', []),
+					createProviderConnection('test-connection', [teamProject1.id]),
+				]);
 			});
 
 			test('should allow owner to list connections for any project', async () => {
@@ -124,49 +127,155 @@ describe('Secret Providers Project API', () => {
 		});
 
 		describe('with global connections only', () => {
-			test.todo('should return global connections');
+			let response: Response;
+
+			beforeAll(async () => {
+				await testDb.truncate(['SecretsProviderConnection', 'ProjectSecretsProviderAccess']);
+
+				await Promise.all([
+					createProviderConnection('global-connection1', []),
+					createProviderConnection('global-connection2', []),
+				]);
+
+				response = await ownerAgent
+					.get(`/secret-providers/projects/${teamProject1.id}/connections`)
+					.expect(200);
+			});
+
+			test('should return global connections', async () => {
+				expect(response.body.data).toHaveLength(2);
+				const names = response.body.data.map((c: { name: string }) => c.name);
+				expect(names).toEqual(expect.arrayContaining(['global-connection1', 'global-connection2']));
+			});
+
+			test('should return the right connection data', async () => {
+				const globalConnection1 = response.body.data.find(
+					(c: { name: string }) => c.name === 'global-connection1',
+				);
+
+				expect(globalConnection1).toMatchObject({
+					name: 'global-connection1',
+					type: 'awsSecretsManager',
+					isEnabled: true,
+					projects: [],
+				});
+			});
 		});
 
 		describe('with project-specific connections only', () => {
-			beforeAll(() => {
-				// TODO: create a project with connections
+			beforeAll(async () => {
+				await testDb.truncate(['SecretsProviderConnection', 'ProjectSecretsProviderAccess']);
+
+				await Promise.all([
+					createProviderConnection('connection1', [teamProject1.id]),
+					createProviderConnection('connection2', [teamProject1.id]),
+					createProviderConnection('connection3', [teamProject1.id]),
+					createProviderConnection('connection4', [teamProject2.id]),
+					createProviderConnection('connection5', [teamProject2.id]),
+				]);
 			});
 
 			describe('when the project has no connections', () => {
-				beforeAll(() => {
-					// TODO: fetch connections for projects without connections
+				test('should return an empty array', async () => {
+					const response = await ownerAgent
+						.get(`/secret-providers/projects/${emptyProject.id}/connections`)
+						.expect(200);
+
+					expect(response.body.data).toEqual([]);
 				});
-
-				test.todo('should return an empty array');
-
-				test.todo('should not return other project connections');
 			});
 
 			describe('when the project has connections', () => {
-				beforeAll(() => {
-					// fetch connections for projects with connections
+				let response: Response;
+
+				beforeAll(async () => {
+					response = await ownerAgent
+						.get(`/secret-providers/projects/${teamProject1.id}/connections`)
+						.expect(200);
+				});
+				test('should only return connections for the project', async () => {
+					expect(response.body.data).toHaveLength(3);
+					const names = response.body.data.map((c: { name: string }) => c.name);
+					expect(names).toEqual(
+						expect.arrayContaining(['connection1', 'connection2', 'connection3']),
+					);
 				});
 
-				test.todo('should return project-specific connections');
+				test('should return the right connection data', async () => {
+					const connection1 = response.body.data.find(
+						(c: { name: string }) => c.name === 'connection1',
+					);
 
-				test.todo('should not return other project connections');
+					expect(connection1).toMatchObject({
+						name: 'connection1',
+						type: 'awsSecretsManager',
+						isEnabled: true,
+						projects: [{ id: teamProject1.id, name: teamProject1.name }],
+					});
+				});
 			});
 		});
 
 		describe('with both global and project-specific connections', () => {
-			beforeAll(() => {
-				// TODO: create a global connection
-				// TODO: create a project with connections
-				// fetch connections for projects with connections
+			beforeAll(async () => {
+				await testDb.truncate(['SecretsProviderConnection', 'ProjectSecretsProviderAccess']);
+
+				await Promise.all([
+					createProviderConnection('connection1', [teamProject1.id]),
+					createProviderConnection('connection2', [teamProject1.id]),
+					createProviderConnection('connection3', [teamProject1.id]),
+					createProviderConnection('connection4', [teamProject2.id]),
+					createProviderConnection('connection5', [teamProject2.id]),
+					createProviderConnection('global-connection1', []),
+					createProviderConnection('global-connection2', []),
+				]);
 			});
 
-			test.todo('should return both global and project-specific connections');
+			describe('when the project has no connections', () => {
+				test('should return global connections', async () => {
+					const response = await ownerAgent
+						.get(`/secret-providers/projects/${emptyProject.id}/connections`)
+						.expect(200);
 
-			test.todo('should not return other project connections');
+					expect(response.body.data).toHaveLength(2);
+					const names = response.body.data.map((c: { name: string }) => c.name);
+					expect(names).toEqual(
+						expect.arrayContaining(['global-connection1', 'global-connection2']),
+					);
+				});
+			});
+
+			describe('when the project has connections', () => {
+				test('should return both global and project-specific connections', async () => {
+					const response = await ownerAgent
+						.get(`/secret-providers/projects/${teamProject1.id}/connections`)
+						.expect(200);
+
+					expect(response.body.data).toHaveLength(5);
+					const names = response.body.data.map((c: { name: string }) => c.name);
+					expect(names).toEqual(
+						expect.arrayContaining([
+							'connection1',
+							'connection2',
+							'connection3',
+							'global-connection1',
+							'global-connection2',
+						]),
+					);
+				});
+			});
 		});
 
 		describe('with no connections', () => {
-			test.todo('should return an empty array');
+			test('should return an empty array', async () => {
+				await testDb.truncate(['SecretsProviderConnection', 'ProjectSecretsProviderAccess']);
+
+				const response = await ownerAgent
+					.get(`/secret-providers/projects/${teamProject1.id}/connections`)
+					.expect(200);
+
+				expect(response.body.data).toEqual([]);
+			});
 		});
 	});
 });
