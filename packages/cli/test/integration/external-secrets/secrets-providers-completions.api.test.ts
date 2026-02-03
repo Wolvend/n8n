@@ -42,9 +42,9 @@ describe('Secret Providers Completions API', () => {
 	let owner: User;
 	let member: User;
 	let admin: User;
-	let authOwnerAgent: SuperAgentTest;
-	let authAdminAgent: SuperAgentTest;
-	let authMemberAgent: SuperAgentTest;
+	let ownerAgent: SuperAgentTest;
+	let adminAgent: SuperAgentTest;
+	let memberAgent: SuperAgentTest;
 
 	const testServer = setupTestServer({
 		endpointGroups: ['externalSecrets'],
@@ -65,9 +65,9 @@ describe('Secret Providers Completions API', () => {
 		member = await createMember();
 		admin = await createAdmin();
 
-		authOwnerAgent = testServer.authAgentFor(owner);
-		authAdminAgent = testServer.authAgentFor(admin);
-		authMemberAgent = testServer.authAgentFor(member);
+		ownerAgent = testServer.authAgentFor(owner);
+		adminAgent = testServer.authAgentFor(admin);
+		memberAgent = testServer.authAgentFor(member);
 
 		connectionRepository = Container.get(SecretsProviderConnectionRepository);
 		projectAccessRepository = Container.get(ProjectSecretsProviderAccessRepository);
@@ -83,17 +83,17 @@ describe('Secret Providers Completions API', () => {
 	describe('GET /secret-providers/completions/secrets/global', () => {
 		describe('Authorisation', () => {
 			it('should authorize owner to list global secrets', async () => {
-				const response = await authOwnerAgent.get('/secret-providers/completions/secrets/global');
+				const response = await ownerAgent.get('/secret-providers/completions/secrets/global');
 				expect(response.status).toBe(200);
 			});
 
 			it('should authorize global admin to list global secrets', async () => {
-				const response = await authAdminAgent.get('/secret-providers/completions/secrets/global');
+				const response = await adminAgent.get('/secret-providers/completions/secrets/global');
 				expect(response.status).toBe(200);
 			});
 
 			it('should refuse member to list global secrets', async () => {
-				const response = await authMemberAgent.get('/secret-providers/completions/secrets/global');
+				const response = await memberAgent.get('/secret-providers/completions/secrets/global');
 				expect(response.status).toBe(403);
 			});
 		});
@@ -165,7 +165,7 @@ describe('Secret Providers Completions API', () => {
 
 				await resetManager();
 
-				const response = await authOwnerAgent
+				const response = await ownerAgent
 					.get('/secret-providers/completions/secrets/global')
 					.expect(200);
 
@@ -215,7 +215,7 @@ describe('Secret Providers Completions API', () => {
 
 				await resetManager();
 
-				const response = await authOwnerAgent
+				const response = await ownerAgent
 					.get('/secret-providers/completions/secrets/global')
 					.expect(200);
 
@@ -227,23 +227,17 @@ describe('Secret Providers Completions API', () => {
 	describe('GET /secret-providers/completions/secrets/project/:projectId', () => {
 		describe('Authorisation', () => {
 			it('should authorize owner to list project secrets', async () => {
-				const response = await authOwnerAgent.get(
-					'/secret-providers/completions/secrets/project/123',
-				);
+				const response = await ownerAgent.get('/secret-providers/completions/secrets/project/123');
 				expect(response.status).toBe(200);
 			});
 
 			it('should authorize global admin to list project secrets', async () => {
-				const response = await authAdminAgent.get(
-					'/secret-providers/completions/secrets/project/123',
-				);
+				const response = await adminAgent.get('/secret-providers/completions/secrets/project/123');
 				expect(response.status).toBe(200);
 			});
 
 			it('should refuse member to list project secrets', async () => {
-				const response = await authMemberAgent.get(
-					'/secret-providers/completions/secrets/project/123',
-				);
+				const response = await memberAgent.get('/secret-providers/completions/secrets/project/123');
 				expect(response.status).toBe(403);
 			});
 		});
@@ -349,7 +343,7 @@ describe('Secret Providers Completions API', () => {
 
 				await resetManager();
 
-				const response = await authOwnerAgent
+				const response = await ownerAgent
 					.get(`/secret-providers/completions/secrets/project/${projectWithConnections.id}`)
 					.expect(200);
 
@@ -404,7 +398,7 @@ describe('Secret Providers Completions API', () => {
 
 				await resetManager();
 
-				const response = await authOwnerAgent
+				const response = await ownerAgent
 					.get(`/secret-providers/completions/secrets/project/${projectWithoutConnections.id}`)
 					.expect(200);
 
@@ -442,7 +436,7 @@ describe('Secret Providers Completions API', () => {
 				await resetManager();
 
 				const nonExistentProjectId = '00000000-0000-0000-0000-000000000000';
-				const response = await authOwnerAgent
+				const response = await ownerAgent
 					.get(`/secret-providers/completions/secrets/project/${nonExistentProjectId}`)
 					.expect(200);
 
