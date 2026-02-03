@@ -1,7 +1,7 @@
 import { Service } from '@n8n/di';
 import { DataSource, Repository } from '@n8n/typeorm';
 
-import { ProjectSecretsProviderAccess, SecretsProviderConnection } from '../entities';
+import { SecretsProviderConnection } from '../entities';
 
 @Service()
 export class SecretsProviderConnectionRepository extends Repository<SecretsProviderConnection> {
@@ -19,7 +19,7 @@ export class SecretsProviderConnectionRepository extends Repository<SecretsProvi
 	async findGlobalConnections(): Promise<SecretsProviderConnection[]> {
 		return await this.manager
 			.createQueryBuilder(SecretsProviderConnection, 'connection')
-			.leftJoin('connection.projectAccess', 'access')
+			.leftJoinAndSelect('connection.projectAccess', 'access')
 			.where('access.secretsProviderConnectionId IS NULL')
 			.andWhere('connection.isEnabled = :isEnabled', { isEnabled: true })
 			.getMany();
@@ -38,38 +38,31 @@ export class SecretsProviderConnectionRepository extends Repository<SecretsProvi
 	}
 
 	/**
-	 * Find connections accessible to a project:
+	 * Find all connections accessible to a project:
 	 * - Connections specifically assigned to this project
 	 * - Global connections (those with no project assignments)
+	 * Returns connections with full project access relations loaded.
 	 */
-	async findByProjectIdWithGlobal(projectId: string): Promise<SecretsProviderConnection[]> {
-		return await this.createQueryBuilder('connection')
+	async findAllAccessibleByProject(projectId: string): Promise<SecretsProviderConnection[]> {
+		// First, get connections assigned to this project
+		const projectConnections = await this.createQueryBuilder('connection')
 			.leftJoinAndSelect('connection.projectAccess', 'projectAccess')
 			.leftJoinAndSelect('projectAccess.project', 'project')
-			.where(
-				(qb) => {
-					// Connection is assigned to this project
-					const subQuery = qb
-						.subQuery()
-						.select('1')
-						.from(ProjectSecretsProviderAccess, 'access')
-						.where('access.secretsProviderConnectionId = connection.id')
-						.andWhere('access.projectId = :projectId')
-						.getQuery();
-					return `EXISTS (${subQuery})`;
-				},
-				{ projectId },
-			)
-			.orWhere((qb) => {
-				// Connection is global (no project assignments)
-				const subQuery = qb
-					.subQuery()
-					.select('1')
-					.from(ProjectSecretsProviderAccess, 'access')
-					.where('access.secretsProviderConnectionId = connection.id')
-					.getQuery();
-				return `NOT EXISTS (${subQuery})`;
-			})
+			.innerJoin('connection.projectAccess', 'access')
+			.where('access.projectId = :projectId', { projectId })
+			.andWhere('connection.isEnabled = :isEnabled', { isEnabled: true })
 			.getMany();
+
+		// Second, get global connections (no project assignments)
+		const globalConnections = await this.findGlobalConnections();
+
+		// Combine and deduplicate by connection id
+		const connectionMap = new Map<number, SecretsProviderConnection>();
+
+		for (const conn of [...projectConnections, ...globalConnections]) {
+			connectionMap.set(conn.id, conn);
+		}
+
+		return Array.from(connectionMap.values());
 	}
 }
