@@ -4,9 +4,9 @@ import {
 	validateWorkflowHasTriggerLikeNode,
 	NodeHelpers,
 	ensureError,
-	isNodeConnectionType,
+	mapConnectionsByDestination,
 } from 'n8n-workflow';
-import type { INode, INodes, IConnections, INodeType, NodeConnectionType } from 'n8n-workflow';
+import type { INode, INodes, IConnections, INodeType } from 'n8n-workflow';
 
 import { STARTING_NODES } from '@/constants';
 import type { NodeTypes } from '@/node-types';
@@ -44,7 +44,7 @@ export class WorkflowValidationService {
 		nodeTypes: NodeTypes,
 	): WorkflowValidationResult {
 		try {
-			const connectionsByDestination = this.mapConnectionsByDestination(connections);
+			const connectionsByDestination = mapConnectionsByDestination(connections);
 			const issuesFound: Array<{ nodeName: string; issues: string[] }> = [];
 
 			for (const node of nodes) {
@@ -140,52 +140,6 @@ export class WorkflowValidationService {
 		}
 
 		return false;
-	}
-
-	/**
-	 * Inverts the connections object to map by destination node.
-	 * Used to find incoming connections for a node.
-	 */
-	private mapConnectionsByDestination(connections: IConnections): IConnections {
-		const destinationMap: IConnections = {};
-
-		for (const [sourceNode, nodeConnections] of Object.entries(connections)) {
-			for (const [connectionType, connectionArrays] of Object.entries(nodeConnections)) {
-				if (!Array.isArray(connectionArrays)) continue;
-
-				if (!isNodeConnectionType(connectionType)) continue;
-				const typedConnectionType: NodeConnectionType = connectionType;
-
-				connectionArrays.forEach((connectionArray, outputIndex) => {
-					if (!Array.isArray(connectionArray)) return;
-
-					connectionArray.forEach((connection) => {
-						const destNode = connection.node;
-
-						if (!destinationMap[destNode]) {
-							destinationMap[destNode] = {};
-						}
-
-						if (!destinationMap[destNode][typedConnectionType]) {
-							destinationMap[destNode][typedConnectionType] = [];
-						}
-
-						const inputIndex = connection.index ?? 0;
-						if (!destinationMap[destNode][typedConnectionType][inputIndex]) {
-							destinationMap[destNode][typedConnectionType][inputIndex] = [];
-						}
-
-						destinationMap[destNode][typedConnectionType][inputIndex].push({
-							node: sourceNode,
-							type: typedConnectionType,
-							index: outputIndex,
-						});
-					});
-				});
-			}
-		}
-
-		return destinationMap;
 	}
 
 	/**
