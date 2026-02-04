@@ -127,7 +127,6 @@ describe('FromAiParametersModal', () => {
 			},
 		});
 		workflowsStore = useWorkflowsStore();
-		workflowsStore.workflow = mock<IWorkflowDb>({ id: 'test-wf-id' });
 		workflowsStore.getNodeByName = vi.fn().mockImplementation((name: string) => {
 			switch (name) {
 				case 'Test Node':
@@ -328,7 +327,7 @@ describe('FromAiParametersModal', () => {
 			currentNodeParameters: {},
 			credentials: undefined,
 			projectId: 'test-project-id',
-			workflowId: 'test-wf-id',
+			workflowId: 'test-workflow',
 		});
 	});
 
