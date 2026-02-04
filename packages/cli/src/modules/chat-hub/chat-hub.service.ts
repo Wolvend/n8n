@@ -56,6 +56,7 @@ import { ChatStreamService } from './chat-stream.service';
 import { getModelMetadata } from './chat-hub.constants';
 import { inE2ETests } from '@/constants';
 import { DateTime } from 'luxon';
+import { collectChatArtifacts, parseMessage } from '@n8n/chat-hub';
 
 @Service()
 export class ChatHubService {
@@ -789,7 +790,7 @@ export class ChatHubService {
 				await this.buildConversationHistory(history, agent, agent.files),
 				input,
 				trx,
-				agent.systemPrompt + '\n\n' + this.getSystemMessage(timeZone),
+				agent.systemPrompt + '\n\n' + this.getSystemMessage(timeZone, history),
 				executionMetadata,
 				embeddingModel ? { memoryKey, embeddingModel } : null,
 			);
@@ -802,7 +803,7 @@ export class ChatHubService {
 			model,
 			await this.buildConversationHistory(history, model, []),
 			input,
-			'You are a helpful assistant.\n\n' + this.getSystemMessage(timeZone),
+			'You are a helpful assistant.\n\n' + this.getSystemMessage(timeZone, history),
 			tools,
 			null,
 			trx,
@@ -887,7 +888,7 @@ export class ChatHubService {
 			sessionId: message.sessionId,
 			type: message.type,
 			name: message.name,
-			content: message.content,
+			content: parseMessage(message),
 			provider: message.provider,
 			model: message.model,
 			workflowId: message.workflowId,
@@ -1130,33 +1131,108 @@ export class ChatHubService {
 		);
 	}
 
-	private getSystemMessage(timeZone: string) {
+	private getSystemMessage(timeZone: string, history: ChatHubMessage[]) {
 		const now = inE2ETests ? DateTime.fromISO('2025-01-15T12:00:00.000Z') : DateTime.now();
 		const isoTime = now.setZone(timeZone).toISO({ includeOffset: true });
 
 		return `
-## Date and time
+## Current Date and Time
 
 The user's current local date and time is: ${isoTime} (timezone: ${timeZone}).
 When you need to reference "now", use this date and time.
 
+## Content Capabilities
 
-## Capabilities
-
-You may *analyze* and *explain* provided multimedia contents, but you can ONLY *produce text responses*.
+You can only produce text responses.
 You cannot create, generate, edit, or display images, videos, or other non-text content.
 If the user asks you to generate or edit an image (or other media), explain that you are not able to do that and, if helpful, describe in words what the image could look like or how they could create it using external tools.
 
+## Document Generation
 
-## Context files
+You can create and edit documents for the user using special XML-like commands. When you use these commands, documents appear in a side panel next to this chat where users can view them in real-time. You can create multiple documents in a conversation, and users can switch between them using a dropdown selector.
 
-If context files are provided by the user,
-- Take them into account for generating relevant answers.
-- Do NOT proactively mention, analyze, summarize or explain them until requested.
+Write these commands DIRECTLY in your response - do NOT wrap them in code fences or backticks.
 
-BAD: "I've received three files: [list and summary]"
-BAD: "I'll use vector store question tool to answer your questions."
-GOOD: "Hello! How can I help you?"
+### Creating a Document
+
+To create a new document, include this command directly in your response:
+
+<command:artifact-create>
+<title>Document Title</title>
+<type>md</type>
+<content>
+Document content here...
+</content>
+</command:artifact-create>
+
+The type can be:
+- html for HTML documents
+- md for Markdown documents
+- A code language like typescript, python, json, etc. for code files
+
+Example response:
+"I'll create an RFC document for you.
+
+<command:artifact-create>
+<title>RFC: New Feature</title>
+<type>md</type>
+<content>
+# RFC: New Feature
+
+## Summary
+This feature will...
+</content>
+</command:artifact-create>
+
+I've created the RFC above. Let me know if you'd like any changes!"
+
+### Editing a Document
+
+To make targeted edits to a document, you must specify the exact title of the document you want to edit:
+
+<command:artifact-edit>
+<title>Document Title</title>
+<oldString>text to find</oldString>
+<newString>replacement text</newString>
+<replaceAll>false</replaceAll>
+</command:artifact-edit>
+
+- <title> is required and must match the exact title of an existing document.
+- Set replaceAll to true to replace all occurrences, or false to replace only the first occurrence.
+- If the document title doesn't exist, the edit command will be ignored.
+
+IMPORTANT:
+- Write these commands directly in your response text, NOT inside code blocks or fences.
+- ALWAYS include conversational text before and/or after document commands. Never send a message with only commands and no explanation.
+
+${this.buildArtifactContext(history)}
 `;
+	}
+
+	private buildArtifactContext(history: ChatHubMessage[]): string {
+		const artifacts = collectChatArtifacts(history.flatMap(parseMessage));
+		if (artifacts.length === 0) {
+			return '';
+		}
+
+		// Multiple artifacts - show all of them
+		const artifactsText = artifacts
+			.map(
+				(artifact, index) => `
+
+### Document ${index + 1}: ${artifact.title} (type: ${artifact.type})
+
+${artifact.content}
+`,
+			)
+			.join('\n');
+
+		return `
+
+## Current Documents
+
+${artifactsText}
+
+You can update the most recent document using the commands described above, or create a new document.`;
 	}
 }

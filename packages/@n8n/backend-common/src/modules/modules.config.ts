@@ -17,6 +17,7 @@ export const MODULE_NAMES = [
 	'sso-saml',
 	'log-streaming',
 	'ldap',
+	'quick-connect',
 	'vector-store',
 ] as const;
 

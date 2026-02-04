@@ -44,6 +44,7 @@ export class ModuleRegistry {
 		'sso-saml',
 		'log-streaming',
 		'ldap',
+		'quick-connect',
 		'vector-store',
 	];
 

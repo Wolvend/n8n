@@ -52,6 +52,7 @@ import {
 	type ChatHubStreamError,
 	type ChatHubExecutionBegin,
 	type ChatHubExecutionEnd,
+	type ChatMessageContentChunk,
 } from '@n8n/api-types';
 import type {
 	CredentialsMap,
@@ -77,6 +78,7 @@ import { convertFileToBinaryData } from '@/app/utils/fileUtils';
 import { ResponseError } from '@n8n/rest-api-client';
 import { STORES } from '@n8n/stores/constants';
 import type { VectorStoreUsageDto } from '@n8n/api-types/src';
+import { appendChunkToParsedMessageItems } from '@n8n/chat-hub';
 
 export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 	const rootStore = useRootStore();
@@ -265,7 +267,7 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 			throw new Error(`Message with ID ${messageId} not found in session ${sessionId}`);
 		}
 
-		message.content = content;
+		message.content = [{ type: 'text', content }];
 	}
 
 	function appendMessage(sessionId: ChatSessionId, messageId: ChatMessageId, chunk: string) {
@@ -275,14 +277,14 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 			throw new Error(`Message with ID ${messageId} not found in session ${sessionId}`);
 		}
 
-		message.content += chunk;
+		message.content = appendChunkToParsedMessageItems(message.content, chunk);
 	}
 
 	function updateMessage(
 		sessionId: ChatSessionId,
 		messageId: ChatMessageId,
 		status: ChatHubMessageStatus,
-		content?: string,
+		content?: ChatMessageContentChunk[],
 	) {
 		const conversation = ensureConversation(sessionId);
 		const message = conversation.messages[messageId];
@@ -363,9 +365,10 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 			.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
 			.pop();
 
+		const activeMessageChain = computeActiveChain(messages, latestMessage?.id ?? null);
 		conversationsBySession.value.set(sessionId, {
 			messages,
-			activeMessageChain: computeActiveChain(messages, latestMessage?.id ?? null),
+			activeMessageChain,
 		});
 		sessions.value.byId[sessionId] = session;
 	}
@@ -950,9 +953,9 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 
 		// Update the message with error content and status
 		if (message.content) {
-			message.content += '\n\n' + error;
+			message.content = appendChunkToParsedMessageItems(message.content, '\n\n' + error);
 		} else {
-			message.content = error;
+			message.content = [{ type: 'text', content: error }];
 		}
 		message.status = 'error';
 
@@ -1091,7 +1094,7 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 			sessionId: data.sessionId,
 			type: 'human',
 			name: 'User',
-			content: data.content,
+			content: [{ type: 'text', content: data.content }],
 			previousMessageId: data.previousMessageId,
 			retryOfMessageId: null,
 			revisionOfMessageId: null,
@@ -1146,7 +1149,7 @@ export const useChatStore = defineStore(STORES.CHAT_HUB, () => {
 			sessionId: data.sessionId,
 			type: 'human',
 			name: originalMessage?.name ?? 'User',
-			content: data.content,
+			content: [{ type: 'text', content: data.content }],
 			previousMessageId: originalMessage?.previousMessageId ?? null,
 			retryOfMessageId: null,
 			revisionOfMessageId: data.revisionOfMessageId,

@@ -64,6 +64,8 @@ import {
 } from './chat-hub.types';
 import { getMaxContextWindowTokens } from './context-limits';
 import type { ChatHubAgent } from './chat-hub-agent.entity';
+import { inE2ETests } from '../../constants';
+import { DateTime } from 'luxon';
 
 @Service()
 export class ChatHubWorkflowService {
@@ -496,6 +498,82 @@ export class ChatHubWorkflowService {
 			name: NODE_NAMES.CHAT_TRIGGER,
 			webhookId: uuidv4(),
 		};
+	}
+
+	getSystemMessageMetadata(timeZone: string) {
+		const now = inE2ETests ? DateTime.fromISO('2025-01-15T12:00:00.000Z') : DateTime.now();
+		const isoTime = now.setZone(timeZone).toISO({ includeOffset: true });
+
+		return `
+## Current Date and Time
+
+The user's current local date and time is: ${isoTime} (timezone: ${timeZone}).
+When you need to reference "now", use this date and time.
+
+## Content Capabilities
+
+You can only produce text responses.
+You cannot create, generate, edit, or display images, videos, or other non-text content.
+If the user asks you to generate or edit an image (or other media), explain that you are not able to do that and, if helpful, describe in words what the image could look like or how they could create it using external tools.
+
+## Document Generation
+
+You can create and edit documents for the user using special XML-like commands. When you use these commands, documents appear in a side panel next to this chat where users can view them in real-time. You can create multiple documents in a conversation, and users can switch between them using a dropdown selector.
+
+Write these commands DIRECTLY in your response - do NOT wrap them in code fences or backticks.
+
+### Creating a Document
+
+To create a new document, include this command directly in your response:
+
+<command:artifact-create>
+<title>Document Title</title>
+<type>md</type>
+<content>
+Document content here...
+</content>
+</command:artifact-create>
+
+The type can be:
+- html for HTML documents
+- md for Markdown documents
+- A code language like typescript, python, json, etc. for code files
+
+Example response:
+"I'll create an RFC document for you.
+
+<command:artifact-create>
+<title>RFC: New Feature</title>
+<type>md</type>
+<content>
+# RFC: New Feature
+
+## Summary
+This feature will...
+</content>
+</command:artifact-create>
+
+I've created the RFC above. Let me know if you'd like any changes!"
+
+### Editing a Document
+
+To make targeted edits to a document, you must specify the exact title of the document you want to edit:
+
+<command:artifact-edit>
+<title>Document Title</title>
+<oldString>text to find</oldString>
+<newString>replacement text</newString>
+<replaceAll>false</replaceAll>
+</command:artifact-edit>
+
+- <title> is required and must match the exact title of an existing document.
+- Set replaceAll to true to replace all occurrences, or false to replace only the first occurrence.
+- If the document title doesn't exist, the edit command will be ignored.
+
+IMPORTANT:
+- Write these commands directly in your response text, NOT inside code blocks or fences.
+- ALWAYS include conversational text before and/or after document commands. Never send a message with only commands and no explanation.
+`;
 	}
 
 	private buildToolsAgentNode(
