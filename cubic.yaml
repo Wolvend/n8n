@@ -41,7 +41,7 @@ reviews:
 
     Approve if reasonably tested. Let humans handle edge cases.
   custom_rules:
-- name: Tests
+    - name: Tests
       description: |-
         BE REASONABLE when evaluating test coverage:
 
