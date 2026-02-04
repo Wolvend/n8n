@@ -738,6 +738,7 @@ async function loadRemoteParameterOptions() {
 		const loadOptionsMethod = getTypeOption('loadOptionsMethod');
 		const loadOptions = getTypeOption('loadOptions');
 
+		debugger;
 		const options = await nodeTypesStore.getNodeParameterOptions({
 			nodeTypeAndVersion: {
 				name: node.value.type,
@@ -749,6 +750,7 @@ async function loadRemoteParameterOptions() {
 			currentNodeParameters: resolvedNodeParameters,
 			credentials: node.value.credentials,
 			projectId: projectsStore.currentProjectId,
+			workflowId: workflowsStore.workflow.id,
 		});
 
 		remoteParameterOptions.value = remoteParameterOptions.value.concat(options);
