@@ -8,11 +8,12 @@
 - [ ] generate mock data for output data based on schema
 - [ ] for webhoook path should not use placeholder
 - [ ] remove agent check in req
+- [ ] get nodes should fail if search was not done for the same node type
 
 
 ## clean up
 - [ ] token calcualtion / iterationCount/ dos / donts from evaluations
-- [ ] maybe don't write to .n8n folder?
+- [ ] maybe don't write to .n8n folder? move to /tmp/
 
 ## ready to release
 - [ ] Refactor & Review PR
@@ -42,6 +43,8 @@
 - [ ] community nodes
 - [ ] test multi agent setup
 - [ ] how it handles validation issues in existing workflows?
+- [ ] guardrails/text classifier outputs
+- [ ] test with/out text editor enabled
 
 ## Nice to haves / tech debt
 - [ ] fix up sticky sizing and positioning to cover nodes

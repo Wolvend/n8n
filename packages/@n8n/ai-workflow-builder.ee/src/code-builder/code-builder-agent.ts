@@ -75,10 +75,11 @@ export class CodeBuilderAgent {
 	private validateToolHandler: ValidateToolHandler;
 	private iterationHandler: AgentIterationHandler;
 	private finalResponseHandler: FinalResponseHandler;
-	/** Current session log file path (for temporary file-based logging) */
+	/** @TODO Current session log file path (for temporary file-based logging) */
 	private currentLogFile: string | null = null;
 
 	constructor(config: CodeBuilderAgentConfig) {
+		/** @TODO Lots of temporary logging to be cleaned up */
 		this.debugLog('CONSTRUCTOR', 'Initializing CodeBuilderAgent...', {
 			nodeTypesCount: config.nodeTypes.length,
 			hasLogger: !!config.logger,
@@ -141,6 +142,7 @@ export class CodeBuilderAgent {
 	/**
 	 * Initialize a log file for the current chat session.
 	 * Creates a file with timestamp, workflow ID, and prompt snippet in the name.
+	 * @TODO remove before merge. Temporary helper for quick local debugging.
 	 */
 	private initLogFile(workflowId: string | undefined, prompt: string): void {
 		const logDir = join(tmpdir(), 'n8n-code-builder-logs');
