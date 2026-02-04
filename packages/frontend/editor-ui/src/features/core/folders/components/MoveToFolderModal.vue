@@ -29,6 +29,7 @@ import ProjectSharing from '@/features/collaboration/projects/components/Project
 import {
 	ResourceType,
 	getTruncatedProjectName,
+	splitName,
 } from '@/features/collaboration/projects/projects.utils';
 import { useWorkflowsListStore } from '@/app/stores/workflowsList.store';
 import { useToast } from '@/app/composables/useToast';
@@ -186,7 +187,17 @@ const onFolderSelected = (payload: ChangeLocationSearchResult) => {
 	selectedFolder.value = payload;
 };
 
+const getPersonalProjectLabel = (projectName?: string | null) => {
+	const { name } = splitName(projectName ?? '');
+	const personalSpaceText = i18n.baseText('projects.sharing.personalSpace');
+	return name ? `${name} (${personalSpaceText})` : personalSpaceText;
+};
+
 const targetProjectName = computed(() => {
+	if (selectedProject.value?.type === ProjectTypes.Personal) {
+		return getPersonalProjectLabel(selectedProject.value?.name);
+	}
+
 	return getTruncatedProjectName(selectedProject.value?.name);
 });
 
