@@ -112,7 +112,6 @@ const onAddColumn = async (column: DataTableColumnCreatePayload): Promise<AddCol
 	return await dataTableTableRef.value.addColumn(column);
 };
 
-// Handler for source control pull events - stored to ensure proper cleanup
 const handleSourceControlPull = async () => {
 	// Bypass cache and fetch fresh data from API after pull
 	loading.value = true;

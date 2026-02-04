@@ -24,6 +24,7 @@ import {
 } from '@n8n/db';
 import { DataTableRepository } from '@/modules/data-table/data-table.repository';
 import { DataTableColumnRepository } from '@/modules/data-table/data-table-column.repository';
+import { DataTableColumn } from '@/modules/data-table/data-table-column.entity';
 import { DataTableDDLService } from '@/modules/data-table/data-table-ddl.service';
 import { Service } from '@n8n/di';
 import { PROJECT_ADMIN_ROLE_SLUG, PROJECT_OWNER_ROLE_SLUG } from '@n8n/permissions';
@@ -1344,56 +1345,64 @@ export class SourceControlImportService {
 				const existingColumnNameMap = new Map(existingColumns.map((c) => [c.id, c.name]));
 				const importedColumnIds = new Set(dataTable.columns.map((c) => c.id));
 
-				// Delete columns that no longer exist in the imported data
-				const columnsToDelete = Array.from(existingColumnIds).filter(
-					(id) => !importedColumnIds.has(id),
-				);
-				if (columnsToDelete.length > 0) {
-					if (!isNewTable) {
-						// Drop columns from physical table
-						for (const columnId of columnsToDelete) {
-							const columnName = existingColumnNameMap.get(columnId);
-							if (columnName) {
-								await this.dataTableDDLService.dropColumnFromTable(
-									dataTable.id,
-									columnName,
-									dbType,
-								);
+				// Wrap all DDL + metadata operations in a transaction
+				await this.dataTableRepository.manager.transaction(async (trx) => {
+					// Delete columns that no longer exist in the imported data
+					const columnsToDelete = Array.from(existingColumnIds).filter(
+						(id) => !importedColumnIds.has(id),
+					);
+					if (columnsToDelete.length > 0) {
+						if (!isNewTable) {
+							// Drop columns from physical table
+							for (const columnId of columnsToDelete) {
+								const columnName = existingColumnNameMap.get(columnId);
+								if (columnName) {
+									await this.dataTableDDLService.dropColumnFromTable(
+										dataTable.id,
+										columnName,
+										dbType,
+										trx,
+									);
+								}
 							}
 						}
+						await trx.delete(DataTableColumn, { id: In(columnsToDelete) });
 					}
-					await this.dataTableColumnRepository.delete({ id: In(columnsToDelete) });
-				}
 
-				// Upsert columns
-				const columnEntities = [];
-				for (const column of dataTable.columns) {
-					if (!isValidDataTableColumnType(column.type)) {
-						this.logger.warn(
-							`Invalid column type "${column.type}" in data table ${dataTable.name}, column ${column.name}. Skipping column.`,
+					// Upsert columns
+					const columnEntities = [];
+					for (const column of dataTable.columns) {
+						if (!isValidDataTableColumnType(column.type)) {
+							this.logger.warn(
+								`Invalid column type "${column.type}" in data table ${dataTable.name}, column ${column.name}. Skipping column.`,
+							);
+							continue;
+						}
+
+						const columnEntity = await trx.save(DataTableColumn, {
+							id: column.id,
+							name: column.name,
+							type: column.type,
+							index: column.index,
+							dataTable: { id: dataTable.id },
+						});
+						columnEntities.push(columnEntity);
+
+						// Add new columns to existing physical table
+						if (!isNewTable && !existingColumnIds.has(column.id)) {
+							await this.dataTableDDLService.addColumn(dataTable.id, columnEntity, dbType, trx);
+						}
+					}
+
+					// Create physical table for new data tables
+					if (isNewTable) {
+						await this.dataTableDDLService.createTableWithColumns(
+							dataTable.id,
+							columnEntities,
+							trx,
 						);
-						continue;
 					}
-
-					const columnEntity = await this.dataTableColumnRepository.save({
-						id: column.id,
-						name: column.name,
-						type: column.type,
-						index: column.index,
-						dataTable: { id: dataTable.id },
-					});
-					columnEntities.push(columnEntity);
-
-					// Add new columns to existing physical table
-					if (!isNewTable && !existingColumnIds.has(column.id)) {
-						await this.dataTableDDLService.addColumn(dataTable.id, columnEntity, dbType);
-					}
-				}
-
-				// Create physical table for new data tables
-				if (isNewTable) {
-					await this.dataTableDDLService.createTableWithColumns(dataTable.id, columnEntities);
-				}
+				});
 
 				result.imported.push(dataTable.name);
 			} catch (error) {

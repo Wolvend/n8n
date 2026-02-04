@@ -91,8 +91,6 @@ describe('SourceControlImportService', () => {
 		mock<InstanceSettings>({ n8nFolder: '/mock/n8n' }),
 		sourceControlScopedService,
 		workflowHistoryService,
-		mock(),
-		mock(),
 		dataTableRepository,
 		dataTableColumnRepository,
 		dataTableDDLService,
@@ -2178,11 +2176,20 @@ describe('SourceControlImportService', () => {
 					mockPersonalProject,
 					{ id: 'project1', type: 'team' },
 				] as any);
+
+				const mockTransaction = {
+					save: jest.fn((_entity: any, data: any) => Promise.resolve(data)),
+					delete: jest.fn(() => Promise.resolve()),
+				};
+
 				Object.defineProperty(dataTableRepository, 'manager', {
 					value: {
 						connection: {
 							options: { type: 'sqlite' },
 						},
+						transaction: jest.fn(async (callback: any) => {
+							return await callback(mockTransaction);
+						}),
 					},
 					configurable: true,
 				});
@@ -2223,14 +2230,11 @@ describe('SourceControlImportService', () => {
 					},
 					['id'],
 				);
-				expect(dataTableColumnRepository.save).toHaveBeenCalledWith({
-					id: 'col1',
-					name: 'Column 1',
-					type: 'string',
-					index: 0,
-					dataTable: { id: 'dt1' },
-				});
-				expect(dataTableDDLService.createTableWithColumns).toHaveBeenCalled();
+				expect(dataTableDDLService.createTableWithColumns).toHaveBeenCalledWith(
+					'dt1',
+					expect.any(Array),
+					expect.anything(),
+				);
 			});
 
 			it('should import personal project data table', async () => {
@@ -2307,11 +2311,11 @@ describe('SourceControlImportService', () => {
 
 				// Assert
 				expect(dataTableRepository.upsert).toHaveBeenCalled();
-				expect(dataTableColumnRepository.save).toHaveBeenCalledTimes(2);
 				expect(dataTableDDLService.addColumn).toHaveBeenCalledWith(
 					'dt1',
 					expect.objectContaining({ id: 'col2' }),
 					'sqlite',
+					expect.anything(),
 				);
 			});
 
@@ -2357,10 +2361,8 @@ describe('SourceControlImportService', () => {
 					'dt1',
 					'Column 2',
 					'sqlite',
+					expect.anything(),
 				);
-				expect(dataTableColumnRepository.delete).toHaveBeenCalledWith({
-					id: In(['col2']),
-				});
 			});
 
 			it('should handle empty data tables file', async () => {
