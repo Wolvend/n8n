@@ -2,7 +2,6 @@
 // vueuse is a peer dependency
 // eslint-disable import-x/no-extraneous-dependencies
 import { onClickOutside } from '@vueuse/core';
-import emojibaseData from 'emojibase-data/en/compact.json';
 import { isEmojiSupported } from 'is-emoji-supported';
 import { ref, computed, nextTick } from 'vue';
 
@@ -24,16 +23,7 @@ import N8nTooltip from '../N8nTooltip';
 defineOptions({ name: 'N8nIconPicker' });
 
 // Create a searchable mapping of emojis to their metadata
-const emojiMetadataMap = new Map(
-	emojibaseData.map((emoji) => [
-		emoji.unicode,
-		{
-			label: emoji.label,
-			tags: emoji.tags || [],
-			hexcode: emoji.hexcode,
-		},
-	]),
-);
+const emojiMetadataMap = ref<Map<string, { label: string; tags: string[]; hexcode: string }>>();
 
 const emojiRanges = [
 	[0x1f600, 0x1f64f], // Emoticons
@@ -97,9 +87,11 @@ const filteredEmojis = computed(() => {
 		return emojis.value;
 	}
 
+	void loadEmojiMetadataMap();
+
 	const query = searchQuery.value.toLowerCase();
 	return emojis.value.filter((emoji) => {
-		const metadata = emojiMetadataMap.get(emoji);
+		const metadata = emojiMetadataMap.value?.get(emoji);
 		if (!metadata) {
 			return false;
 		}
@@ -116,12 +108,23 @@ onClickOutside(container, () => {
 	popupVisible.value = false;
 });
 
-const selectIcon = (value: IconOrEmoji) => {
+function selectIcon(value: IconOrEmoji) {
 	model.value = value;
 	popupVisible.value = false;
-};
+}
 
-const togglePopup = () => {
+function selectRandom() {
+	if (emojis.value.length === 0) {
+		return;
+	}
+
+	model.value = {
+		type: 'emoji',
+		value: emojis.value[Math.floor(Math.random() * emojis.value.length)],
+	};
+}
+
+function togglePopup() {
 	popupVisible.value = !popupVisible.value;
 	if (popupVisible.value) {
 		selectedTab.value = tabs[0].value;
@@ -131,7 +134,26 @@ const togglePopup = () => {
 			searchInput.value?.focus();
 		});
 	}
-};
+}
+
+async function loadEmojiMetadataMap() {
+	if (emojiMetadataMap.value) {
+		return;
+	}
+
+	const emojibaseData = await import('emojibase-data/en/compact.json');
+
+	emojiMetadataMap.value = new Map(
+		emojibaseData.default.map((emoji) => [
+			emoji.unicode,
+			{
+				label: emoji.label,
+				tags: emoji.tags || [],
+				hexcode: emoji.hexcode,
+			},
+		]),
+	);
+}
 </script>
 
 <template>
@@ -190,6 +212,9 @@ const togglePopup = () => {
 						<N8nIcon icon="search" :size="16" />
 					</template>
 				</N8nInput>
+				<N8nButton icon="refresh-cw" size="small" type="secondary" @click="selectRandom">{{
+					t('iconPicker.random')
+				}}</N8nButton>
 			</div>
 			<div v-if="!searchQuery" :class="$style.tabs">
 				<N8nTabs v-model="selectedTab" :options="tabs" data-test-id="icon-picker-tabs" />
@@ -257,8 +282,8 @@ const togglePopup = () => {
 }
 
 .icon-button svg {
-	width: 24px;
-	height: 24px;
+	width: 20px;
+	height: 20px;
 
 	.small & {
 		width: 18px;
@@ -291,6 +316,8 @@ const togglePopup = () => {
 	.search {
 		padding: var(--spacing--2xs);
 		padding-bottom: var(--spacing--2xs);
+		display: flex;
+		gap: var(--spacing--4xs);
 	}
 
 	.tabs {

@@ -81,6 +81,7 @@ export default {
 	'iconPicker.tabs.icons': 'Icons',
 	'iconPicker.tabs.emojis': 'Emojis',
 	'iconPicker.search.placeholder': 'Search...',
+	'iconPicker.random': 'Random',
 	'selectableList.addDefault': '+ Add a',
 	'auth.changePassword.passwordsMustMatchError': 'Passwords must match',
 	'tableControlsButton.display': 'Display',
