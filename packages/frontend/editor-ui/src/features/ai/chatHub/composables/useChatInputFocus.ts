@@ -9,19 +9,6 @@ interface ChatInputRef {
 	setText: (text: string) => void;
 }
 
-/**
- * Composable that enables "type-to-focus" behavior for the chat input.
- * When the user starts typing anywhere in the view (and isn't already
- * focused on an input), the chat input will be focused and the typed
- * character will be inserted.
- *
- * Guards:
- * - Skips if user is focused on input/textarea/contenteditable
- * - Skips if any modal is open
- * - Skips modifier key combinations (Ctrl/Cmd/Alt)
- * - Skips non-printable keys (arrows, escape, etc.)
- * - Skips during IME composition
- */
 export function useChatInputFocus(
 	inputRef: Ref<ChatInputRef | null | undefined>,
 	options?: {
@@ -41,13 +28,10 @@ export function useChatInputFocus(
 	});
 
 	function isPrintableKey(event: KeyboardEvent): boolean {
-		// Printable characters have a key length of 1
-		// This excludes special keys like "Enter", "Escape", "ArrowUp", etc.
 		return event.key.length === 1;
 	}
 
 	function hasModifierKey(event: KeyboardEvent): boolean {
-		// Skip if any modifier key is pressed (except Shift, which is needed for uppercase/symbols)
 		return event.ctrlKey || event.metaKey || event.altKey;
 	}
 
@@ -61,10 +45,7 @@ export function useChatInputFocus(
 		const input = inputRef.value;
 		if (!input) return;
 
-		// Prevent the default behavior and handle it ourselves
 		event.preventDefault();
-
-		// Set the typed character and focus the input
 		input.setText(event.key);
 		input.focus();
 	}

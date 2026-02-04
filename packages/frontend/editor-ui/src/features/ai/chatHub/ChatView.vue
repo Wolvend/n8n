@@ -345,8 +345,6 @@ const canAcceptFiles = computed(() => {
 
 const fileDrop = useFileDrop(canAcceptFiles, onFilesDropped);
 
-// Enable "type-to-focus" behavior: when user starts typing anywhere in the view,
-// focus the chat input and insert the typed character
 useChatInputFocus(inputRef, {
 	disabled: computed(() => showWelcomeScreen.value === true || messagingState.value !== 'idle'),
 });
