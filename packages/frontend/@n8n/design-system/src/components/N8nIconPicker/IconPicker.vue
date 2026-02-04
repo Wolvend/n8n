@@ -2,8 +2,9 @@
 // vueuse is a peer dependency
 // eslint-disable import-x/no-extraneous-dependencies
 import { onClickOutside } from '@vueuse/core';
+import emojibaseData from 'emojibase-data/en/compact.json';
 import { isEmojiSupported } from 'is-emoji-supported';
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 
 import { ALL_ICON_PICKER_ICONS } from './constants';
 import type { IconOrEmoji } from './types';
@@ -11,16 +12,28 @@ import { useI18n } from '../../composables/useI18n';
 import N8nButton from '../N8nButton';
 import N8nIcon from '../N8nIcon';
 import N8nIconButton from '../N8nIconButton';
+import N8nInput from '../N8nInput';
 import N8nTabs from '../N8nTabs';
 import N8nTooltip from '../N8nTooltip';
 
 /**
  * Simple n8n icon picker component with support for font icons and emojis.
  * In order to keep this component as dependency-free as possible, it only renders externally provided font icons.
- * Emojis are rendered from `emojiRanges` array.
- * If we want to introduce advanced features like search, we need to use libraries like `emojilib`.
+ * Emojis are rendered from `emojiRanges` array with searchable metadata from emojibase-data.
  */
 defineOptions({ name: 'N8nIconPicker' });
+
+// Create a searchable mapping of emojis to their metadata
+const emojiMetadataMap = new Map(
+	emojibaseData.map((emoji) => [
+		emoji.unicode,
+		{
+			label: emoji.label,
+			tags: emoji.tags || [],
+			hexcode: emoji.hexcode,
+		},
+	]),
+);
 
 const emojiRanges = [
 	[0x1f600, 0x1f64f], // Emoticons
@@ -66,8 +79,38 @@ const tabs: Array<{ value: string; label: string }> = [
 	{ value: 'emojis', label: t('iconPicker.tabs.emojis') },
 ];
 const selectedTab = ref<string>(tabs[0].value);
+const searchQuery = ref('');
 
 const container = ref<HTMLDivElement>();
+const searchInput = ref<InstanceType<typeof N8nInput>>();
+
+const filteredIcons = computed(() => {
+	if (!searchQuery.value) {
+		return ALL_ICON_PICKER_ICONS;
+	}
+	const query = searchQuery.value.toLowerCase();
+	return ALL_ICON_PICKER_ICONS.filter((icon) => icon.toLowerCase().includes(query));
+});
+
+const filteredEmojis = computed(() => {
+	if (!searchQuery.value) {
+		return emojis.value;
+	}
+
+	const query = searchQuery.value.toLowerCase();
+	return emojis.value.filter((emoji) => {
+		const metadata = emojiMetadataMap.get(emoji);
+		if (!metadata) {
+			return false;
+		}
+
+		// Search in label and tags
+		return (
+			metadata.label.toLowerCase().includes(query) ||
+			metadata.tags.some((tag) => tag.toLowerCase().includes(query))
+		);
+	});
+});
 
 onClickOutside(container, () => {
 	popupVisible.value = false;
@@ -82,6 +125,11 @@ const togglePopup = () => {
 	popupVisible.value = !popupVisible.value;
 	if (popupVisible.value) {
 		selectedTab.value = tabs[0].value;
+		searchQuery.value = '';
+		// Focus the search input after the popup is rendered
+		void nextTick(() => {
+			searchInput.value?.focus();
+		});
 	}
 };
 </script>
@@ -89,7 +137,11 @@ const togglePopup = () => {
 <template>
 	<div
 		ref="container"
-		:class="{ [$style.container]: true, [$style.isReadOnly]: isReadOnly }"
+		:class="{
+			[$style.container]: true,
+			[$style.isReadOnly]: isReadOnly,
+			[$style[props.buttonSize]]: true,
+		}"
 		:aria-expanded="popupVisible"
 		role="button"
 		aria-haspopup="true"
@@ -125,30 +177,67 @@ const togglePopup = () => {
 			</N8nTooltip>
 		</div>
 		<div v-if="popupVisible" :class="$style.popup" data-test-id="icon-picker-popup">
-			<div :class="$style.tabs">
+			<div :class="$style.search">
+				<N8nInput
+					ref="searchInput"
+					v-model="searchQuery"
+					:placeholder="t('iconPicker.search.placeholder')"
+					:clearable="true"
+					size="small"
+					data-test-id="icon-picker-search"
+				>
+					<template #prefix>
+						<N8nIcon icon="search" :size="16" />
+					</template>
+				</N8nInput>
+			</div>
+			<div v-if="!searchQuery" :class="$style.tabs">
 				<N8nTabs v-model="selectedTab" :options="tabs" data-test-id="icon-picker-tabs" />
 			</div>
-			<div v-if="selectedTab === 'icons'" :class="$style.content">
-				<N8nIcon
-					v-for="icon in ALL_ICON_PICKER_ICONS"
-					:key="icon"
-					:icon="icon"
-					:class="$style.icon"
-					:size="24"
-					data-test-id="icon-picker-icon"
-					@click="selectIcon({ type: 'icon', value: icon })"
-				/>
-			</div>
-			<div v-if="selectedTab === 'emojis'" :class="$style.content">
-				<span
-					v-for="emoji in emojis"
-					:key="emoji"
-					:class="$style.emoji"
-					data-test-id="icon-picker-emoji"
-					@click="selectIcon({ type: 'emoji', value: emoji })"
-				>
-					{{ emoji }}
-				</span>
+			<div :class="$style.content">
+				<template v-if="searchQuery">
+					<!-- Show both icons and emojis when searching -->
+					<N8nIcon
+						v-for="icon in filteredIcons"
+						:key="`icon-${icon}`"
+						:icon="icon"
+						:class="$style.icon"
+						:size="24"
+						data-test-id="icon-picker-icon"
+						@click="selectIcon({ type: 'icon', value: icon })"
+					/>
+					<span
+						v-for="emoji in filteredEmojis"
+						:key="`emoji-${emoji}`"
+						:class="$style.emoji"
+						data-test-id="icon-picker-emoji"
+						@click="selectIcon({ type: 'emoji', value: emoji })"
+					>
+						{{ emoji }}
+					</span>
+				</template>
+				<template v-else-if="selectedTab === 'icons'">
+					<N8nIcon
+						v-for="icon in ALL_ICON_PICKER_ICONS"
+						:key="icon"
+						:icon="icon"
+						:class="$style.icon"
+						:size="24"
+						data-test-id="icon-picker-icon"
+						@click="selectIcon({ type: 'icon', value: icon })"
+					/>
+				</template>
+				<template v-else>
+					<span
+						v-for="emoji in emojis"
+						:key="emoji"
+						:class="$style.emoji"
+						data-test-id="icon-picker-emoji"
+						@click="selectIcon({ type: 'emoji', value: emoji })"
+					>
+						{{ emoji }}
+					</span>
+				</template>
 			</div>
 		</div>
 	</div>
@@ -167,8 +256,23 @@ const togglePopup = () => {
 	}
 }
 
+.icon-button svg {
+	width: 24px;
+	height: 24px;
+
+	.small & {
+		width: 18px;
+		height: 18px;
+	}
+}
+
 .emoji-button {
 	padding: 0;
+	font-size: 24px;
+
+	.small & {
+		font-size: 18px;
+	}
 }
 
 .popup {
@@ -184,9 +288,13 @@ const togglePopup = () => {
 	border: var(--border);
 	border-color: var(--color--foreground--shade-1);
 
-	.tabs {
+	.search {
 		padding: var(--spacing--2xs);
-		padding-bottom: var(--spacing--5xs);
+		padding-bottom: var(--spacing--2xs);
+	}
+
+	.tabs {
+		padding: 0 var(--spacing--2xs) var(--spacing--5xs);
 	}
 
 	.content {
