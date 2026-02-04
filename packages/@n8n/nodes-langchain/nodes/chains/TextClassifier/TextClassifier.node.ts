@@ -67,12 +67,8 @@ export class TextClassifier implements INodeType {
 			inputs: {
 				ai_languageModel: { required: true },
 			},
-			message: `
-			*CRITICAL* Multiple outputs example:
-			const classifier = wf.add(node({ type: '@n8n/n8n-nodes-langchain.textClassifier', ... }));
-			classifier.output(0).to(...); // First category output
-			classifier.output(1).to(...); // Second category output
-			Each category defined creates a separate output branch`,
+			message:
+				'Each category defined creates a separate output branch. Output 0 corresponds to the first category, output 1 to the second, and so on.',
 		},
 		properties: [
 			{

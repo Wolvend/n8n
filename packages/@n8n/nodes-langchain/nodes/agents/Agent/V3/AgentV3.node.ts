@@ -41,16 +41,15 @@ export class AgentV3 implements INodeType {
 			}}`,
 			outputs: [NodeConnectionTypes.Main],
 			builderHint: {
-				message:
-					'Need to aggregate multiple items together? Use n8n-nodes-base.aggregate before to combine the items. When agent output needs to be used in subsequent nodes (e.g., conditions, storing data), attach outputParserStructured and reference fields as $json.output.fieldName.',
 				relatedNodes: [
 					{
 						nodeType: 'n8n-nodes-base.aggregate',
-						relationHint: 'Combine items before',
+						relationHint: 'Use to combine multiple items together before the agent',
 					},
 					{
 						nodeType: '@n8n/n8n-nodes-langchain.outputParserStructured',
-						relationHint: 'For structured output',
+						relationHint:
+							'Attach for structured output; reference fields as $json.output.fieldName for use in subsequent nodes (conditions, storing data)',
 					},
 				],
 				inputs: {
