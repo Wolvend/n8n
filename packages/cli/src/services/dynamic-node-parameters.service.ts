@@ -57,10 +57,10 @@ export class DynamicNodeParametersService {
 		private logger: Logger,
 		private nodeTypes: NodeTypes,
 		private workflowLoaderService: WorkflowLoaderService,
-		private shared: SharedWorkflowRepository,
+		private sharedWorkflowRepository: SharedWorkflowRepository,
 	) {}
 
-	async refineProjectId(user: User, payload: { projectId?: string; workflowId?: string }) {
+	async refineResourceIds(user: User, payload: { projectId?: string; workflowId?: string }) {
 		// We want to avoid relying on generic project:read permissions to enable
 		// a future with fine-grained permission control dependent on the respective resource
 		// For now we use the dataTable:listProject scope as this is the existing consumer of
@@ -88,7 +88,9 @@ export class DynamicNodeParametersService {
 				);
 				payload.workflowId = undefined;
 			} else if (payload.projectId === undefined) {
-				const project = await this.shared.getWorkflowOwningProject(payload.workflowId);
+				const project = await this.sharedWorkflowRepository.getWorkflowOwningProject(
+					payload.workflowId,
+				);
 				if (project) {
 					payload.projectId = project.id;
 				}

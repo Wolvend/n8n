@@ -20,7 +20,6 @@ import { getResourcePermissions } from '@n8n/permissions';
 import type { CreateProjectDto, UpdateProjectDto } from '@n8n/api-types';
 import { useSourceControlStore } from '@/features/integrations/sourceControl.ee/sourceControl.store';
 import { hasRole } from '@/app/utils/rbac/checks';
-import { useWorkflowsStore } from '@/app/stores/workflows.store';
 
 export type ResourceCounts = {
 	credentials: number;

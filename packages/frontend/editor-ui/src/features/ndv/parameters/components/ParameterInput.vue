@@ -738,7 +738,6 @@ async function loadRemoteParameterOptions() {
 		const loadOptionsMethod = getTypeOption('loadOptionsMethod');
 		const loadOptions = getTypeOption('loadOptions');
 
-		debugger;
 		const options = await nodeTypesStore.getNodeParameterOptions({
 			nodeTypeAndVersion: {
 				name: node.value.type,
