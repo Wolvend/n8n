@@ -29,6 +29,7 @@ withDefaults(defineProps<Props>(), { middleWidth: '160px' });
 .container {
 	--parameter-input-options--height: 22px;
 	container: input-triple / inline-size;
+	isolation: isolate;
 	width: 100%;
 }
 

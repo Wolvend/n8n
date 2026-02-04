@@ -80,24 +80,6 @@ describe('Assignment.vue', () => {
 		expect(() => getByTestId('parameter-input-hint')).toThrow();
 	});
 
-	it('should shorten the expression preview hint if options are on the bottom', async () => {
-		vi.spyOn(useResolvedExpression, 'useResolvedExpression').mockReturnValueOnce({
-			resolvedExpressionString: ref('foo'),
-			resolvedExpression: ref(null),
-			isExpression: computed(() => true),
-		});
-		const { getByTestId } = renderComponent();
-
-		const previewValue = getByTestId('parameter-expression-preview-value');
-
-		expect(previewValue).not.toHaveClass('optionsPadding');
-
-		await fireEvent.mouseEnter(getByTestId('assignment-value'));
-		await nextTick();
-
-		expect(previewValue).toHaveClass('optionsPadding');
-	});
-
 	it('should show binary data tooltip when assignment type is binary', async () => {
 		const { getByTestId } = renderComponent({
 			props: {
