@@ -60,14 +60,12 @@ $--mode-selector-width: 92px;
 		align-items: center;
 		width: 100%;
 
-		--input--radius--top-left: 0;
-		--input--radius--bottom-left: 0;
+		input {
+			box-sizing: content-box;
+			border-top-left-radius: 0;
+			border-bottom-left-radius: 0;
+		}
 
-		// Suppress N8nInput's border since .background div handles it
-		--input--border-color: transparent;
-		--input--border-width: 0;
-
-		// Remove gap that breaks visual unity with .background div
 		:global(.n8n-input) {
 			gap: 0;
 		}
@@ -79,22 +77,6 @@ $--mode-selector-width: 92px;
 				display: flex;
 			}
 		}
-	}
-
-	.background {
-		position: absolute;
-		background-color: var(--input-triple--color--background);
-		top: 0;
-		bottom: 0;
-		left: 0;
-		right: var(--resource-locator--input-issues--width);
-		border: 1px solid var(--border-color);
-		border-radius: var(--radius);
-		pointer-events: none;
-	}
-
-	.backgroundOverride {
-		right: var(--resource-locator--input-override--width);
 	}
 
 	.backgroundWithIssuesAndShowResourceLink {
@@ -134,14 +116,15 @@ $--mode-selector-width: 92px;
 }
 
 .selectInput input {
-	padding-right: 30px !important;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
 .selectIcon {
+	position: absolute;
+	right: 6px;
 	cursor: pointer;
-	font-size: 14px;
+	font-size: 18px;
 	transition: transform 0.3s;
 	transform: rotateZ(0);
 
@@ -150,8 +133,11 @@ $--mode-selector-width: 92px;
 	}
 }
 
-.listModeInputContainer * {
-	cursor: pointer;
+.listModeInputContainer {
+	position: relative;
+	* {
+		cursor: pointer;
+	}
 }
 
 .errorContainer,
@@ -177,13 +163,9 @@ $--mode-selector-width: 92px;
 	font-size: var(--font-size--2xs);
 }
 
-.openResourceLink {
-	width: 25px !important;
-	padding-left: var(--spacing--2xs);
-	padding-top: var(--spacing--4xs);
-	align-self: flex-start;
-}
-
+.openResourceLink,
 .parameter-issues {
+	display: flex;
 	width: 25px !important;
+	justify-content: flex-end;
 }

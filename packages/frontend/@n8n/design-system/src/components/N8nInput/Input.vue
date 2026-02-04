@@ -397,56 +397,56 @@ defineExpose({ focus, blur, select });
 .xlarge .input {
 	min-height: 48px;
 	padding: 0 var(--spacing--xs);
-	font-size: var(--font-size--md);
+	font-size: var(--input--font-size, var(--font-size--md));
 }
 
 .xlarge .textarea {
 	padding: var(--spacing--2xs) var(--spacing--xs);
-	font-size: var(--font-size--md);
+	font-size: var(--input--font-size, var(--font-size--md));
 }
 
 .large .input {
 	min-height: 40px;
 	padding: 0 var(--spacing--xs);
-	font-size: var(--font-size--sm);
+	font-size: var(--input--font-size, var(--font-size--sm));
 }
 
 .large .textarea {
 	padding: var(--spacing--2xs) var(--spacing--xs);
-	font-size: var(--font-size--sm);
+	font-size: var(--input--font-size, var(--font-size--sm));
 }
 
 .medium .input {
 	min-height: 36px;
 	padding: 0 var(--spacing--2xs);
-	font-size: var(--font-size--sm);
+	font-size: var(--input--font-size, var(--font-size--sm));
 }
 
 .medium .textarea {
 	padding: var(--spacing--2xs);
-	font-size: var(--font-size--sm);
+	font-size: var(--input--font-size, var(--font-size--sm));
 }
 
 .small .input {
 	min-height: 28px;
 	padding: 0 var(--spacing--2xs);
-	font-size: var(--font-size--2xs);
+	font-size: var(--input--font-size, var(--font-size--2xs));
 }
 
 .small .textarea {
 	padding: var(--spacing--2xs);
-	font-size: var(--font-size--2xs);
+	font-size: var(--input--font-size, var(--font-size--2xs));
 }
 
 .mini .input {
 	min-height: 22px;
 	padding: 0 var(--spacing--3xs);
-	font-size: var(--font-size--3xs);
+	font-size: var(--input--font-size, var(--font-size--3xs));
 }
 
 .mini .textarea {
 	padding: var(--spacing--3xs);
-	font-size: var(--font-size--3xs);
+	font-size: var(--input--font-size, var(--font-size--3xs));
 }
 
 .input {

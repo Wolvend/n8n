@@ -288,6 +288,7 @@ watch(
 				<N8nInput
 					ref="searchRef"
 					:model-value="props.filter"
+					size="medium"
 					:clearable="true"
 					:placeholder="
 						props.allowNewResources.label
@@ -532,7 +533,9 @@ watch(
 }
 
 .searchIcon {
+	margin-left: var(--spacing--xs);
 	color: var(--color--text--tint-1);
+	font-size: var(--input--font-size, var(--font-size--sm));
 }
 
 .addResourceText {
