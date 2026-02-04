@@ -1,4 +1,6 @@
 import { v4 as uuid } from 'uuid';
+
+import { isIfNodeType } from '../../constants/node-types';
 import type {
 	IfElseComposite,
 	NodeInstance,
@@ -11,7 +13,6 @@ import type {
 } from '../../types/base';
 import { isNodeInstance } from '../../types/base';
 import { isInputTarget } from '../node-builders/node-builder';
-import { isIfNodeType } from '../../constants/node-types';
 
 /**
  * Extended config for IF branch that includes version and id
@@ -35,12 +36,12 @@ class IfNodeInstance implements NodeInstance<'n8n-nodes-base.if', string, unknow
 	private _connections: DeclaredConnection[] = [];
 
 	constructor(config?: IfBranchConfig) {
-		this.version = config?.version != null ? String(config.version) : '2.3';
+		this.version = config?.version !== undefined ? String(config.version) : '2.3';
 		this.id = config?.id ?? uuid();
 		this.name = config?.name ?? 'IF';
 		this.config = {
 			...config,
-			parameters: config?.parameters as NodeConfig['parameters'],
+			parameters: config?.parameters,
 		};
 	}
 
@@ -57,13 +58,12 @@ class IfNodeInstance implements NodeInstance<'n8n-nodes-base.if', string, unknow
 	}
 
 	output(index: number): OutputSelector<'n8n-nodes-base.if', string, unknown> {
-		const self = this;
 		return {
 			_isOutputSelector: true,
 			node: this,
 			outputIndex: index,
-			to<T extends NodeInstance<string, string, unknown>>(target: T | T[] | InputTarget) {
-				return self.to(target, index);
+			to: <T extends NodeInstance<string, string, unknown>>(target: T | T[] | InputTarget) => {
+				return this.to(target, index);
 			},
 		};
 	}
@@ -94,7 +94,6 @@ class IfNodeInstance implements NodeInstance<'n8n-nodes-base.if', string, unknow
 		}
 		// Return a chain-like object that proxies to the last target
 		const lastTarget = targets[targets.length - 1];
-		const self = this;
 		return {
 			_isChain: true,
 			head: this,
@@ -108,11 +107,11 @@ class IfNodeInstance implements NodeInstance<'n8n-nodes-base.if', string, unknow
 			_outputType: lastTarget._outputType,
 			update: lastTarget.update.bind(lastTarget),
 			to: lastTarget.to.bind(lastTarget),
-			onError: function <H extends NodeInstance<string, string, unknown>>(handler: H) {
+			onError: <H extends NodeInstance<string, string, unknown>>(handler: H) => {
 				lastTarget.onError(handler);
 				return this;
 			},
-			getConnections: () => [...self._connections, ...lastTarget.getConnections()],
+			getConnections: () => [...this._connections, ...lastTarget.getConnections()],
 		} as unknown as NodeChain<NodeInstance<'n8n-nodes-base.if', string, unknown>, T>;
 	}
 
@@ -130,7 +129,7 @@ class IfNodeInstance implements NodeInstance<'n8n-nodes-base.if', string, unknow
  */
 type BranchType =
 	| NodeInstance<string, string, unknown>
-	| NodeInstance<string, string, unknown>[]
+	| Array<NodeInstance<string, string, unknown>>
 	| null;
 
 /**
@@ -140,10 +139,10 @@ class IfElseCompositeImpl implements IfElseComposite {
 	readonly ifNode: NodeInstance<'n8n-nodes-base.if', string, unknown>;
 	readonly trueBranch:
 		| NodeInstance<string, string, unknown>
-		| NodeInstance<string, string, unknown>[];
+		| Array<NodeInstance<string, string, unknown>>;
 	readonly falseBranch:
 		| NodeInstance<string, string, unknown>
-		| NodeInstance<string, string, unknown>[];
+		| Array<NodeInstance<string, string, unknown>>;
 
 	constructor(branches: [BranchType, BranchType], config?: IfBranchConfig) {
 		this.ifNode = new IfNodeInstance(config);
@@ -151,10 +150,10 @@ class IfElseCompositeImpl implements IfElseComposite {
 		// Arrays are supported for fan-out within a branch
 		this.trueBranch = branches[0] as
 			| NodeInstance<string, string, unknown>
-			| NodeInstance<string, string, unknown>[]; // Output 0 = true
+			| Array<NodeInstance<string, string, unknown>>; // Output 0 = true
 		this.falseBranch = branches[1] as
 			| NodeInstance<string, string, unknown>
-			| NodeInstance<string, string, unknown>[]; // Output 1 = false
+			| Array<NodeInstance<string, string, unknown>>; // Output 1 = false
 	}
 }
 
@@ -165,10 +164,10 @@ class IfElseCompositeWithExistingNode implements IfElseComposite {
 	readonly ifNode: NodeInstance<'n8n-nodes-base.if', string, unknown>;
 	readonly trueBranch:
 		| NodeInstance<string, string, unknown>
-		| NodeInstance<string, string, unknown>[];
+		| Array<NodeInstance<string, string, unknown>>;
 	readonly falseBranch:
 		| NodeInstance<string, string, unknown>
-		| NodeInstance<string, string, unknown>[];
+		| Array<NodeInstance<string, string, unknown>>;
 
 	constructor(
 		branches: [BranchType, BranchType],
@@ -177,10 +176,10 @@ class IfElseCompositeWithExistingNode implements IfElseComposite {
 		this.ifNode = existingNode;
 		this.trueBranch = branches[0] as
 			| NodeInstance<string, string, unknown>
-			| NodeInstance<string, string, unknown>[];
+			| Array<NodeInstance<string, string, unknown>>;
 		this.falseBranch = branches[1] as
 			| NodeInstance<string, string, unknown>
-			| NodeInstance<string, string, unknown>[];
+			| Array<NodeInstance<string, string, unknown>>;
 	}
 }
 
@@ -228,10 +227,7 @@ export function ifBranch(
 ): IfElseComposite {
 	// Check if the second argument is a NodeInstance (pre-declared IF node)
 	if (isNodeInstance(configOrNode) && isIfNodeType(configOrNode.type)) {
-		return new IfElseCompositeWithExistingNode(
-			branches,
-			configOrNode as NodeInstance<'n8n-nodes-base.if', string, unknown>,
-		);
+		return new IfElseCompositeWithExistingNode(branches, configOrNode);
 	}
 	// Otherwise, treat it as an IfBranchConfig
 	return new IfElseCompositeImpl(branches, configOrNode as IfBranchConfig);

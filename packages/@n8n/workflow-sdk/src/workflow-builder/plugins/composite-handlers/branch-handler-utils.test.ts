@@ -149,7 +149,7 @@ describe('branch-handler-utils', () => {
 			const node2 = createMockNode('Node2');
 			const mainConns = new Map<number, ConnectionTarget[]>();
 			const ctx = {
-				addBranchToGraph: jest.fn().mockImplementation((n) => n.name),
+				addBranchToGraph: jest.fn().mockImplementation((n: { name: string }) => n.name),
 			} as unknown as MutablePluginContext;
 			processBranchForComposite([node1, node2], 0, ctx, mainConns);
 			expect(mainConns.get(0)).toEqual([

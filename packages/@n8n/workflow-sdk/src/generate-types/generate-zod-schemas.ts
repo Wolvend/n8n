@@ -17,7 +17,7 @@ import type {
 	DiscriminatorTree,
 	AIInputTypeInfo,
 } from './generate-types';
-
+// eslint-disable-next-line import-x/no-cycle -- TODO: Refactor shared types/utils to break cycle
 import {
 	extractDiscriminatorCombinations,
 	getPropertiesForCombination,
@@ -1478,7 +1478,7 @@ export function generateResourceIndexSchemaFile(
 	const operationDefault = operationProp?.default;
 
 	// Export factory function via module.exports - receives all helpers and passes them through
-	lines.push(`module.exports = function getSchema(helpers) {`);
+	lines.push('module.exports = function getSchema(helpers) {');
 	lines.push(`${INDENT}const { parameters, z } = helpers;`);
 
 	// Apply operation default if operation is missing from parameters
@@ -1575,7 +1575,7 @@ export function generateSplitVersionIndexSchemaFile(
 	lines.push('');
 
 	// Export factory function via module.exports - receives all helpers and passes them through
-	lines.push(`module.exports = function getSchema(helpers) {`);
+	lines.push('module.exports = function getSchema(helpers) {');
 	lines.push(`${INDENT}const { parameters, z } = helpers;`);
 
 	// Apply discriminator default if discriminator is missing from parameters

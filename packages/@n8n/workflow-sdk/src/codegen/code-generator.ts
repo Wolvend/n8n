@@ -4,26 +4,8 @@
  * Generates LLM-friendly SDK code from a composite tree.
  */
 
-import type { WorkflowJSON } from '../types/base';
-import type { SemanticGraph, SemanticNode, AiConnectionType } from './types';
 import type { Schema } from 'n8n-workflow';
-import type { NodeExecutionStatus } from './execution-status';
-import { schemaToOutputSample } from './execution-schema-jsdoc';
-import { escapeString, escapeRegexChars } from './string-utils';
-import {
-	AI_CONNECTION_TO_CONFIG_KEY,
-	AI_CONNECTION_TO_BUILDER,
-	AI_ALWAYS_ARRAY_TYPES,
-	AI_OPTIONAL_ARRAY_TYPES,
-} from './constants';
-import { getVarName, getUniqueVarName } from './variable-names';
-import {
-	isTriggerType,
-	isStickyNote,
-	isMergeType,
-	generateDefaultNodeName,
-} from './node-type-utils';
-import { formatValue } from './subnode-generator';
+
 import type {
 	CompositeTree,
 	CompositeNode,
@@ -38,6 +20,25 @@ import type {
 	ExplicitConnectionsNode,
 	MultiOutputNode,
 } from './composite-tree';
+import {
+	AI_CONNECTION_TO_CONFIG_KEY,
+	AI_CONNECTION_TO_BUILDER,
+	AI_ALWAYS_ARRAY_TYPES,
+	AI_OPTIONAL_ARRAY_TYPES,
+} from './constants';
+import { schemaToOutputSample } from './execution-schema-jsdoc';
+import type { NodeExecutionStatus } from './execution-status';
+import {
+	isTriggerType,
+	isStickyNote,
+	isMergeType,
+	generateDefaultNodeName,
+} from './node-type-utils';
+import { escapeString, escapeRegexChars } from './string-utils';
+import { formatValue } from './subnode-generator';
+import type { SemanticGraph, SemanticNode, AiConnectionType } from './types';
+import { getVarName, getUniqueVarName } from './variable-names';
+import type { WorkflowJSON } from '../types/base';
 
 /**
  * Execution context options for code generation
@@ -121,7 +122,7 @@ function generateSubnodeCall(
 	if (configParts.length > 0) {
 		parts.push(`config: { ${configParts.join(', ')} }`);
 	} else {
-		parts.push(`config: {}`);
+		parts.push('config: {}');
 	}
 
 	return `${builderName}({ ${parts.join(', ')} })`;
@@ -250,7 +251,7 @@ function generateSubnodeCallWithVarRefs(
 	if (configParts.length > 0) {
 		parts.push(`config: { ${configParts.join(', ')} }`);
 	} else {
-		parts.push(`config: {}`);
+		parts.push('config: {}');
 	}
 
 	return `${builderName}({ ${parts.join(', ')} })`;
@@ -953,7 +954,7 @@ function collectNestedMultiOutputs(node: CompositeNode, collected: MultiOutputNo
 			collectNestedMultiOutputs(n, collected);
 		}
 	} else if (node.kind === 'splitInBatches') {
-		const sib = node as SplitInBatchesCompositeNode;
+		const sib = node;
 		if (sib.doneChain) {
 			if (Array.isArray(sib.doneChain)) {
 				for (const b of sib.doneChain) collectNestedMultiOutputs(b, collected);
@@ -969,7 +970,7 @@ function collectNestedMultiOutputs(node: CompositeNode, collected: MultiOutputNo
 			}
 		}
 	} else if (node.kind === 'ifElse') {
-		const ifElse = node as IfElseCompositeNode;
+		const ifElse = node;
 		if (ifElse.trueBranch) {
 			if (Array.isArray(ifElse.trueBranch)) {
 				for (const b of ifElse.trueBranch) collectNestedMultiOutputs(b, collected);
@@ -985,7 +986,7 @@ function collectNestedMultiOutputs(node: CompositeNode, collected: MultiOutputNo
 			}
 		}
 	} else if (node.kind === 'switchCase') {
-		const switchCase = node as SwitchCaseCompositeNode;
+		const switchCase = node;
 		for (const c of switchCase.cases) {
 			if (c) {
 				if (Array.isArray(c)) {
@@ -996,13 +997,13 @@ function collectNestedMultiOutputs(node: CompositeNode, collected: MultiOutputNo
 			}
 		}
 	} else if (node.kind === 'fanOut') {
-		const fanOut = node as FanOutCompositeNode;
+		const fanOut = node;
 		collectNestedMultiOutputs(fanOut.sourceNode, collected);
 		for (const t of fanOut.targets) {
 			collectNestedMultiOutputs(t, collected);
 		}
 	} else if (node.kind === 'merge') {
-		const merge = node as MergeCompositeNode;
+		const merge = node;
 		for (const b of merge.branches) {
 			collectNestedMultiOutputs(b, collected);
 		}
@@ -1043,7 +1044,7 @@ function flattenToWorkflowCalls(
 
 	if (root.kind === 'multiOutput') {
 		// Multi-output node: generate .add(sourceNode) then .add(sourceNode.output(n).to(target)) for each output
-		const multiOutput = root as MultiOutputNode;
+		const multiOutput = root;
 		const sourceVarName = getVarName(multiOutput.sourceNode.name, ctx);
 
 		// First, add the source node itself
@@ -1059,7 +1060,7 @@ function flattenToWorkflowCalls(
 		}
 	} else if (root.kind === 'explicitConnections') {
 		// Explicit connections pattern: generate .add() for each node, then .connect() for each connection
-		const explicitConns = root as ExplicitConnectionsNode;
+		const explicitConns = root;
 
 		// Add each node (use variable references since they're already declared)
 		for (const node of explicitConns.nodes) {
@@ -1088,7 +1089,7 @@ function flattenToWorkflowCalls(
 				// When encountering a multiOutput node in a chain:
 				// 1. Generate .to(sourceNode) to connect the previous node to the multi-output source
 				// 2. Then generate separate .add() calls for each output
-				const multiOutput = node as MultiOutputNode;
+				const multiOutput = node;
 				const sourceVarName = getVarName(multiOutput.sourceNode.name, ctx);
 
 				// Connect to the multi-output source node
