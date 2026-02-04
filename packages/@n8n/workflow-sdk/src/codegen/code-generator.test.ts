@@ -769,6 +769,7 @@ describe('code-generator', () => {
 				expect(code).toContain('\\u2019'); // Unicode escape sequence in generated code
 
 				// When eval'd, should produce the original character
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- Testing eval behavior for unicode
 				const evalResult = eval("'What\\u2019s the weather in Paris?'");
 				expect(evalResult).toBe(originalName);
 			});
@@ -1811,12 +1812,10 @@ describe('code-generator', () => {
 				// Read the actual workflow 5755 JSON which has IF nodes as cycle targets
 				const jsonPath = path.join(__dirname, '../../test-fixtures/real-workflows/5755.json');
 				// eslint-disable-next-line n8n-local-rules/no-uncaught-json-parse -- Test fixture file
-				const json = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+				const json = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as WorkflowJSON;
 
 				// Find the Animation Completed? node in original
-				const originalNode = json.nodes.find(
-					(n: { name: string }) => n.name === 'Animation Completed?',
-				);
+				const originalNode = json.nodes.find((n) => n.name === 'Animation Completed?');
 				expect(originalNode?.type).toBe('n8n-nodes-base.if');
 				expect(originalNode?.parameters).toBeDefined();
 

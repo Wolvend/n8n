@@ -403,10 +403,12 @@ describe('WorkflowBuilder plugin integration', () => {
 
 	describe('then() with composite handlers', () => {
 		it('delegates IfElseComposite to registered handler in then()', () => {
-			const mockAddNodes = jest.fn().mockImplementation((input: IfElseComposite, ctx) => {
-				ctx.addNodeWithSubnodes(input.ifNode);
-				return input.ifNode.name;
-			});
+			const mockAddNodes = jest
+				.fn()
+				.mockImplementation((input: IfElseComposite, ctx: MutablePluginContext) => {
+					ctx.addNodeWithSubnodes(input.ifNode);
+					return input.ifNode.name;
+				});
 			const mockHandler: CompositeHandlerPlugin<IfElseComposite> = {
 				id: 'test:if-else',
 				name: 'Test If/Else Handler',
@@ -627,9 +629,11 @@ describe('WorkflowBuilder plugin integration', () => {
 
 			// Verify handler was found (may be called multiple times, find the one that returned a handler)
 			expect(findHandlerSpy).toHaveBeenCalled();
-			const foundHandler = findHandlerSpy.mock.results.find((r) => r.value?.id === 'core:if-else');
+			const foundHandler = findHandlerSpy.mock.results.find(
+				(r: { value?: { id: string } }) => r.value?.id === 'core:if-else',
+			) as { value?: { id: string } } | undefined;
 			expect(foundHandler).toBeDefined();
-			expect(foundHandler!.value.id).toBe('core:if-else');
+			expect(foundHandler!.value!.id).toBe('core:if-else');
 
 			// Verify workflow was built correctly
 			const json = wf.toJSON();
@@ -660,7 +664,7 @@ describe('WorkflowBuilder plugin integration', () => {
 
 			// Verify handler was found
 			const foundHandler = findHandlerSpy.mock.results.find(
-				(r) => r.value?.id === 'core:switch-case',
+				(r: { value?: { id: string } }) => r.value?.id === 'core:switch-case',
 			);
 			expect(foundHandler).toBeDefined();
 
@@ -690,7 +694,7 @@ describe('WorkflowBuilder plugin integration', () => {
 
 			// Verify handler was found
 			const foundHandler = findHandlerSpy.mock.results.find(
-				(r) => r.value?.id === 'core:split-in-batches',
+				(r: { value?: { id: string } }) => r.value?.id === 'core:split-in-batches',
 			);
 			expect(foundHandler).toBeDefined();
 

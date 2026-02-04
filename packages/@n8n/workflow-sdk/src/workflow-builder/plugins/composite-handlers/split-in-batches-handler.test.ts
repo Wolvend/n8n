@@ -1,5 +1,5 @@
 import { splitInBatchesHandler } from './split-in-batches-handler';
-import type { NodeInstance, GraphNode } from '../../../types/base';
+import type { NodeInstance, GraphNode, ConnectionTarget } from '../../../types/base';
 import type { MutablePluginContext } from '../types';
 
 // Helper to create a mock split-in-batches node
@@ -393,7 +393,9 @@ describe('splitInBatchesHandler', () => {
 				addNodeWithSubnodes: jest.fn((node: NodeInstance<string, string, unknown>) => {
 					nodes.set(node.name, {
 						instance: node,
-						connections: new Map([['main', new Map()]]),
+						connections: new Map<string, Map<number, ConnectionTarget[]>>([
+							['main', new Map<number, ConnectionTarget[]>()],
+						]),
 					});
 					return node.name;
 				}),
@@ -402,7 +404,9 @@ describe('splitInBatchesHandler', () => {
 					if (!nodes.has(branchNode.name)) {
 						nodes.set(branchNode.name, {
 							instance: branchNode,
-							connections: new Map([['main', new Map()]]),
+							connections: new Map<string, Map<number, ConnectionTarget[]>>([
+								['main', new Map<number, ConnectionTarget[]>()],
+							]),
 						});
 					}
 					return branchNode.name;
@@ -459,7 +463,9 @@ describe('splitInBatchesHandler', () => {
 				addNodeWithSubnodes: jest.fn((node: NodeInstance<string, string, unknown>) => {
 					nodes.set(node.name, {
 						instance: node,
-						connections: new Map([['main', new Map()]]),
+						connections: new Map<string, Map<number, ConnectionTarget[]>>([
+							['main', new Map<number, ConnectionTarget[]>()],
+						]),
 					});
 					return node.name;
 				}),
@@ -468,7 +474,9 @@ describe('splitInBatchesHandler', () => {
 					if (!nodes.has(branchNode.name)) {
 						nodes.set(branchNode.name, {
 							instance: branchNode,
-							connections: new Map([['main', new Map()]]),
+							connections: new Map<string, Map<number, ConnectionTarget[]>>([
+								['main', new Map<number, ConnectionTarget[]>()],
+							]),
 						});
 					}
 					return branchNode.name;
@@ -500,7 +508,9 @@ describe('splitInBatchesHandler', () => {
 				addNodeWithSubnodes: jest.fn((node: NodeInstance<string, string, unknown>) => {
 					nodes.set(node.name, {
 						instance: node,
-						connections: new Map([['main', new Map()]]),
+						connections: new Map<string, Map<number, ConnectionTarget[]>>([
+							['main', new Map<number, ConnectionTarget[]>()],
+						]),
 					});
 					return node.name;
 				}),
@@ -509,7 +519,9 @@ describe('splitInBatchesHandler', () => {
 					if (!nodes.has(branchNode.name)) {
 						nodes.set(branchNode.name, {
 							instance: branchNode,
-							connections: new Map([['main', new Map()]]),
+							connections: new Map<string, Map<number, ConnectionTarget[]>>([
+								['main', new Map<number, ConnectionTarget[]>()],
+							]),
 						});
 					}
 					return branchNode.name;

@@ -522,7 +522,10 @@ describe('AST Interpreter', () => {
 			});
 			// Verify node was called with the subnode
 			expect(sdkFunctions.node).toHaveBeenCalled();
-			const nodeCallArgs = (sdkFunctions.node as jest.Mock).mock.calls[0][0];
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Jest mock.calls returns any[]
+			const nodeCallArgs = (sdkFunctions.node as jest.Mock).mock.calls[0][0] as {
+				config: { subnodes: { model: unknown } };
+			};
 			expect(nodeCallArgs.config.subnodes.model).toBeDefined();
 		});
 
@@ -539,7 +542,10 @@ describe('AST Interpreter', () => {
 			expect(sdkFunctions.fromAi).toHaveBeenCalledWith('email', 'Recipient email');
 			// Verify tool was called with the fromAi result
 			expect(sdkFunctions.tool).toHaveBeenCalled();
-			const toolCallArgs = (sdkFunctions.tool as jest.Mock).mock.calls[0][0];
+			// eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- Jest mock.calls returns any[]
+			const toolCallArgs = (sdkFunctions.tool as jest.Mock).mock.calls[0][0] as {
+				config: { parameters: { sendTo: string } };
+			};
 			expect(toolCallArgs.config.parameters.sendTo).toContain('$fromAI');
 		});
 	});

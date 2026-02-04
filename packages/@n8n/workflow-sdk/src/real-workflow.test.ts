@@ -41,7 +41,9 @@ function loadWorkflowsFromDir(dir: string, workflows: TestWorkflow[]): void {
 	}
 
 	// eslint-disable-next-line n8n-local-rules/no-uncaught-json-parse -- Manifest is controlled fixture file
-	const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+	const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as {
+		workflows: Array<{ id: string | number; name: string; success: boolean }>;
+	};
 
 	for (const entry of manifest.workflows) {
 		if (!entry.success) continue;
