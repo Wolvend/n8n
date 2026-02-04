@@ -121,12 +121,10 @@ onMounted(async () => {
 	documentTitle.set(i18n.baseText('dataTable.dataTables'));
 	await initialize();
 
-	// Listen for source control pull events to refresh data table
 	sourceControlEventBus.on('pull', handleSourceControlPull);
 });
 
 onBeforeUnmount(() => {
-	// Clean up event listener with the same handler reference
 	sourceControlEventBus.off('pull', handleSourceControlPull);
 });
 </script>
