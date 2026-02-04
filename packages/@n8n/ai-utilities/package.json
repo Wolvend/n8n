@@ -1,8 +1,12 @@
 {
-	"name": "@n8n/ai-node-sdk",
+	"name": "@n8n/ai-utilities",
+  "version": "0.1.0",
+  "description": "Utilities for building AI nodes in n8n",
 	"version": "0.1.0",
 	"description": "SDK for building AI nodes in n8n",
-	"main": "index.js",
+  "main": "dist/index.js",
+  "module": "src/index.ts",
+  "types": "dist/index.d.ts",
 	"scripts": {
 		"example:run": "tsx examples/run.ts",
 		"clean": "rimraf dist .turbo",
@@ -23,16 +27,21 @@
 	],
 	"devDependencies": {
 		"@types/json-schema": "^7.0.15",
-		"jest-mock-extended": "^3.0.4"
+		"jest-mock-extended": "^3.0.4",
+    "@types/mime-types": "catalog:"
 	},
 	"dependencies": {
 		"zod": "catalog:",
     "zod-to-json-schema": "catalog:",
 		"@langchain/core": "catalog:",
+    "@langchain/classic": "1.0.5",
+    "@langchain/community": "catalog:",
+    "@langchain/textsplitters": "1.0.1",
 		"@langchain/openai": "catalog:",
 		"langchain": "catalog:",
 		"@n8n/config": "workspace:*",
 		"@n8n/typescript-config": "workspace:*",
-		"n8n-workflow": "workspace:*"
+		"n8n-workflow": "workspace:*",
+    "tmp-promise": "3.0.3"
 	}
 }
