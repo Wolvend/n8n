@@ -14,9 +14,12 @@ import {
 interface Props {
 	modelValue: string;
 	isReadOnly?: boolean;
+	isStacked?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+	isStacked: false,
+});
 
 const emit = defineEmits<{
 	'update:model-value': [type: string];

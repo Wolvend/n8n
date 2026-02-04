@@ -273,13 +273,13 @@ watch(
 					@operator-change="onOperatorChange"
 				></OperatorSelect>
 			</template>
-			<template v-if="!operator.singleValue" #right>
+			<template v-if="!operator.singleValue" #right="{ isStacked }">
 				<ParameterInputFull
 					display-options
 					hide-label
 					hide-hint
 					hide-issues
-					options-position="top-absolute"
+					:options-position="isStacked ? 'bottom' : 'top-absolute'"
 					:is-read-only="readOnly"
 					:parameter="rightParameter"
 					:value="condition.rightValue"

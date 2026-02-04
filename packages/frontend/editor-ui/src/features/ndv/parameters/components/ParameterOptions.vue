@@ -241,6 +241,7 @@ const onViewSelected = (selected: string) => {
 	display: flex;
 	min-height: var(--parameter-input-options--height, 22px);
 	max-height: var(--parameter-input-options--height, 22px);
+	overflow: hidden;
 }
 
 .loader {

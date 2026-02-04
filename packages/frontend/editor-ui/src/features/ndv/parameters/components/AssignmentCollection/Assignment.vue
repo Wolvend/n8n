@@ -189,6 +189,7 @@ const onValueDrop = async (droppedExpression: string) => {
 						display-options
 						hide-label
 						hide-hint
+						options-position="top"
 						:is-read-only="isReadOnly"
 						:parameter="nameParameter"
 						:value="assignment.name"
@@ -198,7 +199,7 @@ const onValueDrop = async (droppedExpression: string) => {
 						@blur="onBlur"
 					/>
 				</template>
-				<template v-if="!hideType" #middle>
+				<template v-if="!hideType" #middle="{ isStacked }">
 					<div :class="$style.typeSelectWrapper">
 						<N8nTooltip placement="left" :disabled="assignment.type !== 'binary'">
 							<template #content>
@@ -207,12 +208,13 @@ const onValueDrop = async (droppedExpression: string) => {
 							<TypeSelect
 								:model-value="assignment.type ?? 'string'"
 								:is-read-only="disableType || isReadOnly"
+								:is-stacked="isStacked"
 								@update:model-value="onAssignmentTypeChange"
 							/>
 						</N8nTooltip>
 					</div>
 				</template>
-				<template #right>
+				<template #right="{ isStacked }">
 					<div :class="$style.value">
 						<ParameterInputFull
 							display-options
@@ -221,7 +223,7 @@ const onValueDrop = async (droppedExpression: string) => {
 							hide-hint
 							is-assignment
 							:is-read-only="isReadOnly"
-							options-position="top"
+							:options-position="isStacked ? 'bottom' : 'top'"
 							:parameter="valueParameter"
 							:value="assignment.value"
 							:path="`${path}.value`"

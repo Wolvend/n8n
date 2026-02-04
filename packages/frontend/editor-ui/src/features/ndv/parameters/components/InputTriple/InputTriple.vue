@@ -1,25 +1,33 @@
 <script setup lang="ts">
+import { useElementSize } from '@vueuse/core';
+import { computed, ref } from 'vue';
+
 type Props = {
 	middleWidth?: string;
 };
 withDefaults(defineProps<Props>(), { middleWidth: '160px' });
+
+const STACKED_BREAKPOINT = 400;
+const containerRef = ref<HTMLElement | null>(null);
+const { width } = useElementSize(containerRef);
+const isStacked = computed(() => width.value > 0 && width.value <= STACKED_BREAKPOINT);
 </script>
 
 <template>
-	<div :class="$style.container">
+	<div ref="containerRef" :class="$style.container">
 		<div :class="$style.items">
 			<div v-if="$slots.left" :class="[$style.item, $style.itemFirst]">
-				<slot name="left"></slot>
+				<slot name="left" :is-stacked="isStacked"></slot>
 			</div>
 			<div
 				v-if="$slots.middle"
 				:class="[$style.item, $style.itemMiddle]"
 				:style="{ '--input-triple--width': middleWidth }"
 			>
-				<slot name="middle"></slot>
+				<slot name="middle" :is-stacked="isStacked"></slot>
 			</div>
 			<div v-if="$slots.right" :class="[$style.item, $style.itemLast]">
-				<slot name="right"></slot>
+				<slot name="right" :is-stacked="isStacked"></slot>
 			</div>
 		</div>
 	</div>
@@ -87,7 +95,8 @@ withDefaults(defineProps<Props>(), { middleWidth: '160px' });
 			margin-top: 0;
 		}
 
-		&:not(:first-child) {
+		// Hide options row for middle items only (first shows at top, last shows at bottom)
+		&:not(:first-child):not(:last-child) {
 			--parameter-input-options--height: 0;
 		}
 	}
