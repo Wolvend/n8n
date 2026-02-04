@@ -2178,8 +2178,8 @@ describe('SourceControlImportService', () => {
 				] as any);
 
 				const mockTransaction = {
-					save: jest.fn((_entity: any, data: any) => Promise.resolve(data)),
-					delete: jest.fn(() => Promise.resolve()),
+					save: jest.fn(async (_entity: any, data: any) => Promise.resolve(data)),
+					delete: jest.fn(async () => Promise.resolve()),
 				};
 
 				Object.defineProperty(dataTableRepository, 'manager', {
