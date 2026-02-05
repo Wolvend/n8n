@@ -64,6 +64,9 @@ jobs:
         with:
           node-version: 22.x
 
+      # Remove after https://github.com/npm/cli/issues/8547 gets resolved
+      - run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
       - name: Add beta/next tags to NPM
         if: needs.validate-inputs.outputs.release_channel == 'beta'
         run: |
