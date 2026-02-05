@@ -319,31 +319,39 @@ const nameWorkflowVersion = async (id: WorkflowVersionId, data: WorkflowHistoryA
 	const nameVersionEventBus = createEventBus<WorkflowHistoryNameVersionModalEventBusEvents>();
 
 	nameVersionEventBus.once('save', async (saveData) => {
-		await workflowHistoryStore.updateWorkflowHistoryVersion(workflowId.value, id, {
-			name: saveData.name,
-			description: saveData.description,
-		});
-
-		const historyItem = workflowHistory.value.find((item) => item.versionId === saveData.versionId);
-		if (historyItem) {
-			historyItem.name = saveData.name;
-			historyItem.description = saveData.description;
-		}
-
-		if (selectedWorkflowVersion.value?.versionId === saveData.versionId) {
-			selectedWorkflowVersion.value = {
-				...selectedWorkflowVersion.value,
+		try {
+			await workflowHistoryStore.updateWorkflowHistoryVersion(workflowId.value, id, {
 				name: saveData.name,
 				description: saveData.description,
-			};
+			});
+
+			const historyItem = workflowHistory.value.find(
+				(item) => item.versionId === saveData.versionId,
+			);
+			if (historyItem) {
+				historyItem.name = saveData.name;
+				historyItem.description = saveData.description;
+			}
+
+			if (selectedWorkflowVersion.value?.versionId === saveData.versionId) {
+				selectedWorkflowVersion.value = {
+					...selectedWorkflowVersion.value,
+					name: saveData.name,
+					description: saveData.description,
+				};
+			}
+
+			toast.showMessage({
+				title: i18n.baseText('workflowHistory.action.nameVersion.success.title'),
+				type: 'success',
+			});
+
+			sendTelemetry('User named version from history');
+
+			uiStore.closeModal(WORKFLOW_HISTORY_NAME_VERSION_MODAL_KEY);
+		} catch (error) {
+			toast.showError(error, i18n.baseText('workflowHistory.action.nameVersion.error.title'));
 		}
-
-		toast.showMessage({
-			title: i18n.baseText('workflowHistory.action.nameVersion.success.title'),
-			type: 'success',
-		});
-
-		sendTelemetry('User named version from history');
 	});
 
 	uiStore.openModalWithData({

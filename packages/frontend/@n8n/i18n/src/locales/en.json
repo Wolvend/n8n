@@ -3483,6 +3483,7 @@
 	"workflowHistory.action.clone.success.message": "Open cloned workflow in a new tab",
 	"workflowHistory.action.unpublish.success.title": "Workflow unpublished successfully",
 	"workflowHistory.action.nameVersion.success.title": "Version name updated successfully",
+	"workflowHistory.action.nameVersion.error.title": "Failed to update version name",
 	"workflowHistory.nameVersionModal.title": "Name version",
 	"workflowHistory.nameVersionModal.nameVersion": "Name version",
 	"workflowHistory.action.unpublish.notAvailable": "This workflow has no published version to unpublish",

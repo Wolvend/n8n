@@ -82,9 +82,6 @@ const handleSubmit = () => {
 		name: versionName.value,
 		description: description.value,
 	});
-
-	submitting.value = false;
-	closeModal();
 };
 </script>
 

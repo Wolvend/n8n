@@ -6,6 +6,7 @@ import { useI18n } from '@n8n/i18n';
 import { useWorkflowActivate } from '@/app/composables/useWorkflowActivate';
 import { createEventBus } from '@n8n/utils/event-bus';
 import type { EventBus } from '@n8n/utils/event-bus';
+import { useUIStore } from '@/app/stores/ui.store';
 
 export type WorkflowHistoryPublishModalEventBusEvents = {
 	publish: { versionId: string; name: string; description: string };
@@ -26,6 +27,7 @@ const props = defineProps<{
 
 const i18n = useI18n();
 const workflowActivate = useWorkflowActivate();
+const uiStore = useUIStore();
 
 const formEventBus = createEventBus<WorkflowHistoryVersionFormModalEventBusEvents>();
 
@@ -43,6 +45,7 @@ formEventBus.on(
 
 		if (success) {
 			props.data.eventBus.emit('publish', submitData);
+			uiStore.closeModal(WORKFLOW_HISTORY_PUBLISH_MODAL_KEY);
 		}
 	},
 );
