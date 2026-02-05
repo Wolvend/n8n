@@ -190,7 +190,9 @@ describe('GET /credentials', () => {
 		expect(Array.isArray(response.body.data)).toBe(true);
 		expect(response.body.data.length).toBe(2);
 
+		const allowedListItemKeys = ['createdAt', 'id', 'name', 'projects', 'type', 'updatedAt'];
 		response.body.data.forEach((item: Record<string, unknown>) => {
+			expect(Object.keys(item).sort()).toEqual(allowedListItemKeys);
 			expect(item).toHaveProperty('id');
 			expect(item).toHaveProperty('name');
 			expect(item).toHaveProperty('type');
@@ -215,8 +217,6 @@ describe('GET /credentials', () => {
 				expect(proj).toHaveProperty('createdAt');
 				expect(proj).toHaveProperty('updatedAt');
 			});
-			expect(item).not.toHaveProperty('data');
-			expect(item).not.toHaveProperty('shared');
 		});
 		expect(response.body.data).toContainEqual(
 			expect.objectContaining({ id: saved1.id, name: saved1.name }),

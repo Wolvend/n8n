@@ -48,9 +48,14 @@ export = {
 			res: express.Response,
 		): Promise<
 			express.Response<{
-				data: Array<
-					Partial<CredentialsEntity> & { projects: ReturnType<typeof buildProjectsForCredential> }
-				>;
+				data: Array<{
+					id: string;
+					name: string;
+					type: string;
+					createdAt: Date;
+					updatedAt: Date;
+					projects: ReturnType<typeof buildProjectsForCredential>;
+				}>;
 				nextCursor: string | null;
 			}>
 		> => {
@@ -62,12 +67,17 @@ export = {
 				skip: offset,
 			});
 
-			const data = (sanitizeCredentials(credentials) as Partial<CredentialsEntity>[]).map(
-				(sanitized, index) => ({
-					...sanitized,
-					projects: buildProjectsForCredential(credentials[index] as CredentialsEntity),
-				}),
-			);
+			const data = credentials.map((credential) => {
+				const projects = buildProjectsForCredential(credential);
+				return {
+					id: credential.id,
+					name: credential.name,
+					type: credential.type,
+					createdAt: credential.createdAt,
+					updatedAt: credential.updatedAt,
+					projects,
+				};
+			});
 
 			return res.json({
 				data,
