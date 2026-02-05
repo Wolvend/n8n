@@ -315,8 +315,11 @@ const nodeTypeForIcon = computed((): SimplifiedNodeType | null => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color--warning);
-	border-radius: 50%;
+
+	.badgeIcon {
+		color: var(--color--warning);
+		font-size: 16px;
+	}
 }
 
 .badgeIcon {
