@@ -50,11 +50,9 @@ jobs:
 
       - name: Pre publishing changes
         run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
           node .github/scripts/ensure-provenance-fields.mjs
 
       - name: Publish package
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PACKAGE: ${{ github.event.inputs.package }}
         run: pnpm --filter "$PACKAGE" publish --access public --no-git-checks --publish-branch master

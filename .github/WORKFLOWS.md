@@ -644,7 +644,7 @@ cosign verify-attestation --type openvex \
 
 | Category            | Secrets                                                     |
 |---------------------|-------------------------------------------------------------|
-| Package Publishing  | `NPM_TOKEN`, `DOCKER_USERNAME`, `DOCKER_PASSWORD`           |
+| Package Publishing  | `DOCKER_USERNAME`, `DOCKER_PASSWORD`           |
 | Notifications       | `SLACK_WEBHOOK_URL`, `QBOT_SLACK_TOKEN`                     |
 | Code Quality        | `CODECOV_TOKEN`, `CHROMATIC_PROJECT_TOKEN`, `CURRENTS_RECORD_KEY` |
 | Error Tracking      | `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_*_PROJECT`       |
