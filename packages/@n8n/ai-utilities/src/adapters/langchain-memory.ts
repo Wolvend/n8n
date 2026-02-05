@@ -2,47 +2,9 @@ import { BaseChatMemory as LangchainBaseChatMemory } from '@langchain/community/
 import { ChatMessageHistory as LangchainChatMessageHistory } from '@langchain/community/stores/message/in_memory';
 import type { BaseChatMessageHistory as LangchainBaseChatMessageHistory } from '@langchain/core/chat_history';
 import type { InputValues, MemoryVariables, OutputValues } from '@langchain/core/memory';
-import {
-	AIMessage,
-	HumanMessage,
-	SystemMessage,
-	ToolMessage,
-	type BaseMessage,
-} from '@langchain/core/messages';
 
+import { toLcMessage } from '../storage/message-utils';
 import type { ChatMemory } from '../types/memory';
-import type { Message, MessageContent } from '../types/message';
-
-function toLC(message: Message): BaseMessage {
-	const text = message.content
-		.filter((c): c is MessageContent & { type: 'text' } => c.type === 'text')
-		.map((c) => c.text)
-		.join('');
-
-	switch (message.role) {
-		case 'system':
-			return new SystemMessage(text);
-		case 'human':
-			return new HumanMessage(text);
-		case 'ai':
-			return new AIMessage(text);
-		case 'tool': {
-			const toolResult = message.content.find((c) => c.type === 'tool-result');
-			if (toolResult && 'toolCallId' in toolResult) {
-				return new ToolMessage({
-					content:
-						typeof toolResult.result === 'string'
-							? toolResult.result
-							: JSON.stringify(toolResult.result),
-					tool_call_id: toolResult.toolCallId,
-				});
-			}
-			return new AIMessage(text);
-		}
-		default:
-			return new HumanMessage(text);
-	}
-}
 
 /** Internal adapter - used by supplyMemory() */
 export class LangchainMemoryAdapter extends LangchainBaseChatMemory {
@@ -65,7 +27,7 @@ export class LangchainMemoryAdapter extends LangchainBaseChatMemory {
 
 	async loadMemoryVariables(_values: InputValues): Promise<MemoryVariables> {
 		const messages = await this.n8nMemory.loadMessages();
-		const lcMessages = messages.map(toLC);
+		const lcMessages = messages.map(toLcMessage);
 
 		await this.chatHistory.clear();
 		await this.chatHistory.addMessages(lcMessages);

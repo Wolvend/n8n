@@ -299,9 +299,9 @@ async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyD
 
   // SDK provides the implementation - you just configure it
   const history = new RedisChatHistory({
-    sessionId,
     client,
-    ttl: credentials.ttl,
+    sessionId,
+    sessionTTL: credentials.ttl,
   });
 
   const memory = new WindowedChatMemory(history, { windowSize });
@@ -453,7 +453,7 @@ async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyD
   await client.connect();
 
   // SDK provides RedisChatHistory - no need to implement!
-  const history = new RedisChatHistory({ sessionId, client, ttl: credentials.ttl });
+  const history = new RedisChatHistory({ client, sessionId, sessionTTL: credentials.ttl });
   const memory = new WindowedChatMemory(history, { windowSize });
 
   return supplyMemory(this, memory, {
