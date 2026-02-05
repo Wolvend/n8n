@@ -1,5 +1,7 @@
 import type { VIEWS } from '@/app/constants';
+import { CODE_WORKFLOW_BUILDER_EXPERIMENT } from '@/app/constants';
 import { BUILDER_ENABLED_VIEWS } from './constants';
+import { usePostHog } from '@/app/stores/posthog.store';
 import { STORES } from '@n8n/stores';
 import type { ChatUI } from '@n8n/design-system/types/assistant';
 import { isToolMessage, isWorkflowUpdatedMessage } from '@n8n/design-system/types/assistant';
@@ -141,6 +143,7 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 	const uiStore = useUIStore();
 	const router = useRouter();
 	const workflowSaver = useWorkflowSaving({ router });
+	const posthogStore = usePostHog();
 
 	// Composables
 	const {
@@ -157,6 +160,13 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 	const { workflowTodos, getTodosToTrack } = useBuilderTodos();
 
 	const trackingSessionId = computed(() => rootStore.pushRef);
+
+	/** Whether the code-builder experiment is enabled for this user */
+	const isCodeBuilder = computed(
+		() =>
+			posthogStore.getVariant(CODE_WORKFLOW_BUILDER_EXPERIMENT.name) ===
+			CODE_WORKFLOW_BUILDER_EXPERIMENT.test,
+	);
 
 	const workflowPrompt = computed(() => {
 		const firstUserMessage = chatMessages.value.find(
@@ -907,6 +917,7 @@ export const useBuilderStore = defineStore(STORES.BUILDER, () => {
 		streaming,
 		builderThinkingMessage,
 		isAIBuilderEnabled,
+		isCodeBuilder,
 		workflowPrompt,
 		toolMessages,
 		workflowMessages,
