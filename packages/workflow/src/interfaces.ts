@@ -3389,13 +3389,3 @@ export interface StructuredChunk {
 }
 
 export type ApiKeyAudience = 'public-api' | 'mcp-server-api';
-
-export interface VectorDocument {
-	content: string;
-	metadata: Record<string, unknown>;
-}
-
-export interface VectorSearchResult {
-	document: VectorDocument;
-	score: number;
-}

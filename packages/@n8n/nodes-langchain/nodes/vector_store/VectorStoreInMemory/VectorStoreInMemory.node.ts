@@ -13,7 +13,10 @@ import {
 
 import { createVectorStoreNode } from '../shared/createVectorStoreNode/createVectorStoreNode';
 import { MemoryVectorStoreManager } from '../shared/MemoryManager/MemoryVectorStoreManager';
-import { DatabaseVectorStore, type BinaryDataCredentials } from './DatabaseVectorStore';
+import {
+	InternalLanceDBVectorStore,
+	type BinaryDataCredentials,
+} from './InternalLanceDBVectorStore';
 
 const warningBanner: INodeProperties = {
 	displayName:
@@ -71,7 +74,7 @@ function getMemoryKey(context: IExecuteFunctions | ISupplyDataFunctions, itemInd
 }
 
 export class VectorStoreInMemory extends createVectorStoreNode<
-	MemoryVectorStore | DatabaseVectorStore
+	MemoryVectorStore | InternalLanceDBVectorStore
 >({
 	meta: {
 		displayName: 'Simple Vector Store',
@@ -231,7 +234,7 @@ export class VectorStoreInMemory extends createVectorStoreNode<
 					await this.getCredentials<BinaryDataCredentials>('instanceBinaryDataApi');
 
 				// Use DatabaseVectorStore to list stores
-				const tableNames = await DatabaseVectorStore.listStores(credentials, filter);
+				const tableNames = await InternalLanceDBVectorStore.listStores(credentials, filter);
 
 				return {
 					results: tableNames.map((key: string) => ({ name: key, value: key })),
@@ -277,7 +280,7 @@ export class VectorStoreInMemory extends createVectorStoreNode<
 			const credentials =
 				await context.getCredentials<BinaryDataCredentials>('instanceBinaryDataApi');
 
-			return new DatabaseVectorStore(credentials, embeddings, memoryKey);
+			return new InternalLanceDBVectorStore(credentials, embeddings, memoryKey);
 		} else {
 			// Use in-memory vector store (existing behavior)
 			const vectorStoreSingleton = MemoryVectorStoreManager.getInstance(embeddings, context.logger);
@@ -298,7 +301,7 @@ export class VectorStoreInMemory extends createVectorStoreNode<
 			const credentials =
 				await context.getCredentials<BinaryDataCredentials>('instanceBinaryDataApi');
 
-			const vectorStore = new DatabaseVectorStore(credentials, embeddings, memoryKey);
+			const vectorStore = new InternalLanceDBVectorStore(credentials, embeddings, memoryKey);
 
 			if (clearStore) {
 				await vectorStore.clearStore();

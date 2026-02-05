@@ -18,7 +18,6 @@ export const MODULE_NAMES = [
 	'log-streaming',
 	'ldap',
 	'quick-connect',
-	'vector-store',
 ] as const;
 
 export type ModuleName = (typeof MODULE_NAMES)[number];

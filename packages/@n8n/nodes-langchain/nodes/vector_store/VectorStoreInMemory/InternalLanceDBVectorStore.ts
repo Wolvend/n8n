@@ -25,11 +25,11 @@ export interface BinaryDataCredentials {
 }
 
 /**
- * DatabaseVectorStore - A VectorStore implementation that persists vectors using LanceDB
+ * A VectorStore implementation that persists vectors using LanceDB with instance's binary data persistence
  *
  * This class bridges LangChain's VectorStore interface with LanceDB backend
  */
-export class DatabaseVectorStore extends VectorStore {
+export class InternalLanceDBVectorStore extends VectorStore {
 	private connection?: Connection;
 	private readonly storageConfig: BinaryDataCredentials;
 
