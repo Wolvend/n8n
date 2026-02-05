@@ -390,7 +390,7 @@ const onNameVersion = async () => {
 						name: submitData.name,
 						description: submitData.description,
 					};
-					workflowsStore.setWorkflowCurrentVersion(updatedVersion);
+					workflowsStore.setWorkflowVersionMetadata(updatedVersion);
 				}
 
 				toast.showMessage({

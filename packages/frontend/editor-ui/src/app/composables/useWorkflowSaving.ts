@@ -226,7 +226,7 @@ export function useWorkflowSaving({
 				throw new Error('Failed to update workflow');
 			}
 			workflowsStore.setWorkflowVersionId(workflowData.versionId, workflowData.checksum);
-			workflowsStore.setWorkflowCurrentVersion({
+			workflowsStore.setWorkflowVersionMetadata({
 				versionId: workflowData.versionId,
 				name: null,
 				description: null,
@@ -455,7 +455,7 @@ export function useWorkflowSaving({
 			workflowState.setActive(workflowData.activeVersionId);
 			workflowState.setWorkflowId(workflowData.id);
 			workflowsStore.setWorkflowVersionId(workflowData.versionId);
-			workflowsStore.setWorkflowCurrentVersion({
+			workflowsStore.setWorkflowVersionMetadata({
 				versionId: workflowData.versionId,
 				name: null,
 				description: null,

@@ -664,7 +664,7 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 		workflow.value.activeVersion = deepCopy(version);
 	}
 
-	function setWorkflowCurrentVersion(version: WorkflowVersionMetadata | null) {
+	function setWorkflowVersionMetadata(version: WorkflowVersionMetadata | null) {
 		versionData.value = deepCopy(version);
 	}
 
@@ -1852,7 +1852,7 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 		setUsedCredentials,
 		setWorkflowVersionId,
 		setWorkflowActiveVersion,
-		setWorkflowCurrentVersion,
+		setWorkflowVersionMetadata,
 		replaceInvalidWorkflowCredentials,
 		assignCredentialToMatchingNodes,
 		archiveWorkflow,

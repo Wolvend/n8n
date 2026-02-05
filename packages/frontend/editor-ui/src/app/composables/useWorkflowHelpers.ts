@@ -979,13 +979,13 @@ export function useWorkflowHelpers() {
 					workflowData.id,
 					workflowData.versionId,
 				);
-				workflowsStore.setWorkflowCurrentVersion({
+				workflowsStore.setWorkflowVersionMetadata({
 					versionId: versionData.versionId,
 					name: versionData.name,
 					description: versionData.description,
 				});
 			} catch {
-				workflowsStore.setWorkflowCurrentVersion(null);
+				workflowsStore.setWorkflowVersionMetadata(null);
 			}
 		}
 

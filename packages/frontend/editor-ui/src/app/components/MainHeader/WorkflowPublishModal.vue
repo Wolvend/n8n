@@ -182,7 +182,7 @@ async function handlePublish() {
 	);
 
 	if (success) {
-		workflowsStore.setWorkflowCurrentVersion({
+		workflowsStore.setWorkflowVersionMetadata({
 			versionId: workflowsStore.workflow.versionId,
 			name: versionName.value,
 			description: description.value,
