@@ -337,6 +337,7 @@ export const useAIAssistantHelpers = () => {
 	 * @param data The execution result data to simplify
 	 * @param options Options for simplification
 	 * @param options.compact If true, removes large inputOverride fields (> 2000 bytes)
+	 * @param options.removeParameterValues If true, removes parameter values but keeps errors (simplified) and metadata
 	 **/
 	function simplifyResultData(
 		data: IRunExecutionData['resultData'],
@@ -347,9 +348,20 @@ export const useAIAssistantHelpers = () => {
 			runData: {},
 		};
 
-		// Handle optional error (can contain node parameter values, so we omit it if removeParameterValues is true)
+		// Handle optional error
+		// When removeParameterValues is true, simplify the error to safe fields only (no node parameters)
+		// This allows debugging while protecting sensitive data
 		if (data.error) {
-			simplifiedResultData.error = removeParameterValues ? undefined : data.error;
+			if (removeParameterValues) {
+				// Extract only safe fields from the error for debugging
+				simplifiedResultData.error = {
+					message: data.error.message,
+					name: data.error.name,
+					stack: data.error.stack,
+				} as typeof data.error;
+			} else {
+				simplifiedResultData.error = data.error;
+			}
 		}
 
 		// Early return if runData is not present
@@ -363,8 +375,12 @@ export const useAIAssistantHelpers = () => {
 			simplifiedResultData.runData[key] = taskDataArray.map((taskData) => {
 				const { data: _taskDataContent, ...taskDataWithoutData } = taskData;
 
-				// If compact mode is enabled, remove large inputOverride fields
-				if (compact && taskDataWithoutData.inputOverride) {
+				// When privacy is OFF (removeParameterValues), always remove inputOverride
+				// as it can contain parameter values
+				if (removeParameterValues) {
+					delete taskDataWithoutData.inputOverride;
+				} else if (compact && taskDataWithoutData.inputOverride) {
+					// If compact mode is enabled, remove large inputOverride fields
 					try {
 						const inputOverrideStr = JSON.stringify(taskDataWithoutData.inputOverride);
 						const sizeInBytes = new Blob([inputOverrideStr]).size;
@@ -378,6 +394,15 @@ export const useAIAssistantHelpers = () => {
 						// Remove the problematic field entirely
 						delete taskDataWithoutData.inputOverride;
 					}
+				}
+
+				// When privacy is OFF, also simplify any error in task data
+				if (removeParameterValues && taskDataWithoutData.error) {
+					taskDataWithoutData.error = {
+						message: taskDataWithoutData.error.message,
+						name: taskDataWithoutData.error.name,
+						stack: taskDataWithoutData.error.stack,
+					} as typeof taskDataWithoutData.error;
 				}
 
 				return taskDataWithoutData;

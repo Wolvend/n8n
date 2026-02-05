@@ -775,6 +775,150 @@ describe('Simplify assistant payloads', () => {
 		expect(simplifiedResultData.runData.TestNode[0].inputOverride).toBeUndefined();
 		expect(simplifiedResultData.runData.TestNode[1].inputOverride).toBeUndefined();
 	});
+
+	it('simplifyResultData: Should keep simplified error when removeParameterValues is true', () => {
+		const executionData: IRunExecutionData['resultData'] = {
+			runData: {},
+			error: {
+				name: 'NodeOperationError',
+				message: 'Something went wrong',
+				stack: 'Error: Something went wrong\n    at someFunction',
+				// These fields should be removed
+				node: {
+					id: 'node1',
+					name: 'Test Node',
+					type: 'test.node',
+					typeVersion: 1,
+					position: [0, 0],
+					parameters: { sensitiveData: 'secret' },
+				},
+			} as unknown as IRunExecutionData['resultData']['error'],
+			lastNodeExecuted: 'Test Node',
+			metadata: { key: 'value' },
+		};
+
+		const simplifiedResultData = aiAssistantHelpers.simplifyResultData(executionData, {
+			removeParameterValues: true,
+		});
+
+		// Error should be present but simplified to safe fields only
+		expect(simplifiedResultData.error).toBeDefined();
+		expect(simplifiedResultData.error?.name).toBe('NodeOperationError');
+		expect(simplifiedResultData.error?.message).toBe('Something went wrong');
+		expect(simplifiedResultData.error?.stack).toBe(
+			'Error: Something went wrong\n    at someFunction',
+		);
+		// Node info should not be present (it can contain parameter values)
+		expect((simplifiedResultData.error as unknown as { node?: unknown })?.node).toBeUndefined();
+
+		// Metadata and lastNodeExecuted should still be present
+		expect(simplifiedResultData.lastNodeExecuted).toBe('Test Node');
+		expect(simplifiedResultData.metadata).toEqual({ key: 'value' });
+	});
+
+	it('simplifyResultData: Should remove inputOverride from all task data when removeParameterValues is true', () => {
+		const smallInput = createInputOverride({ data: 'small' });
+		const executionData: IRunExecutionData['resultData'] = {
+			runData: {
+				TestNode: [
+					{
+						hints: [],
+						startTime: 1732882780588,
+						executionIndex: 0,
+						executionTime: 4,
+						source: [],
+						executionStatus: 'success',
+						inputOverride: smallInput,
+						data: {
+							main: [[{ json: {} }]],
+						},
+					},
+				],
+			},
+			pinData: {},
+		};
+
+		const simplifiedResultData = aiAssistantHelpers.simplifyResultData(executionData, {
+			removeParameterValues: true,
+		});
+
+		// inputOverride should be removed regardless of size when removeParameterValues is true
+		expect(simplifiedResultData.runData.TestNode[0].inputOverride).toBeUndefined();
+		// But timing/status should still be present
+		expect(simplifiedResultData.runData.TestNode[0].startTime).toBe(1732882780588);
+		expect(simplifiedResultData.runData.TestNode[0].executionStatus).toBe('success');
+	});
+
+	it('simplifyResultData: Should simplify error in task data when removeParameterValues is true', () => {
+		const executionData: IRunExecutionData['resultData'] = {
+			runData: {
+				TestNode: [
+					{
+						hints: [],
+						startTime: 1732882780588,
+						executionIndex: 0,
+						executionTime: 4,
+						source: [],
+						executionStatus: 'error',
+						error: {
+							name: 'NodeApiError',
+							message: 'API call failed',
+							stack: 'Error: API call failed\n    at apiCall',
+							// Extra fields that might contain sensitive data
+							httpCode: '401',
+							description: 'Unauthorized',
+						} as unknown as IRunExecutionData['resultData']['runData'][string][number]['error'],
+						data: {
+							main: [[{ json: {} }]],
+						},
+					},
+				],
+			},
+			pinData: {},
+		};
+
+		const simplifiedResultData = aiAssistantHelpers.simplifyResultData(executionData, {
+			removeParameterValues: true,
+		});
+
+		// Error should be simplified to safe fields
+		const taskError = simplifiedResultData.runData.TestNode[0].error;
+		expect(taskError).toBeDefined();
+		expect(taskError?.name).toBe('NodeApiError');
+		expect(taskError?.message).toBe('API call failed');
+		expect(taskError?.stack).toBe('Error: API call failed\n    at apiCall');
+		// Extra fields should not be present
+		expect((taskError as unknown as { httpCode?: string })?.httpCode).toBeUndefined();
+		expect((taskError as unknown as { description?: string })?.description).toBeUndefined();
+	});
+
+	it('simplifyResultData: Should keep full error when removeParameterValues is false', () => {
+		const executionData: IRunExecutionData['resultData'] = {
+			runData: {},
+			error: {
+				name: 'NodeOperationError',
+				message: 'Something went wrong',
+				stack: 'Error: Something went wrong\n    at someFunction',
+				node: {
+					id: 'node1',
+					name: 'Test Node',
+					type: 'test.node',
+					typeVersion: 1,
+					position: [0, 0],
+					parameters: { sensitiveData: 'secret' },
+				},
+			} as unknown as IRunExecutionData['resultData']['error'],
+		};
+
+		const simplifiedResultData = aiAssistantHelpers.simplifyResultData(executionData, {
+			removeParameterValues: false,
+		});
+
+		// Full error should be present
+		expect(simplifiedResultData.error).toBeDefined();
+		expect(simplifiedResultData.error?.name).toBe('NodeOperationError');
+		expect((simplifiedResultData.error as unknown as { node?: unknown })?.node).toBeDefined();
+	});
 });
 
 describe('processNodeForAssistant - trimParameterValues', () => {
