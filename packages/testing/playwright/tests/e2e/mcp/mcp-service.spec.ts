@@ -227,13 +227,7 @@ test.describe('MCP Service', () => {
 
 			const fakeWorkflowId = 'nonexistent-workflow-id-12345';
 
-			try {
-				await api.mcp.internalMcpGetWorkflowDetails(apiKey, fakeWorkflowId);
-				expect(true).toBe(false);
-			} catch (error) {
-				expect(error).toBeDefined();
-				expect((error as Error).message).toBeTruthy();
-			}
+			await expect(api.mcp.internalMcpGetWorkflowDetails(apiKey, fakeWorkflowId)).rejects.toThrow();
 		});
 
 		test('should return error for workflow not available in MCP', async ({ api }) => {
@@ -244,13 +238,7 @@ test.describe('MCP Service', () => {
 
 			const { apiKey } = await api.rotateMcpApiKey();
 
-			try {
-				await api.mcp.internalMcpGetWorkflowDetails(apiKey, workflowId);
-				expect(true).toBe(false);
-			} catch (error) {
-				expect(error).toBeDefined();
-				expect((error as Error).message).toBeTruthy();
-			}
+			await expect(api.mcp.internalMcpGetWorkflowDetails(apiKey, workflowId)).rejects.toThrow();
 		});
 
 		test('should include trigger info in response', async ({ api }) => {
@@ -328,6 +316,7 @@ test.describe('MCP Service', () => {
 		test('should handle malformed JSON-RPC messages', async ({ api }) => {
 			const { apiKey } = await api.rotateMcpApiKey();
 
+			// Missing required 'jsonrpc: "2.0"' field
 			const malformedMessage = {
 				id: nanoid(),
 				method: 'tools/list',
@@ -335,8 +324,13 @@ test.describe('MCP Service', () => {
 
 			const response = await api.mcp.internalMcpSendMessage(apiKey, malformedMessage);
 
-			const body = await response.text();
-			expect(body).toBeTruthy();
+			// Server returns 400 Bad Request for malformed JSON-RPC
+			expect(response.status()).toBe(400);
+
+			const body = await response.json();
+			expect(body.error).toBeDefined();
+			expect(body.error.code).toBe(-32700); // Parse error
+			expect(body.error.message).toBeTruthy();
 		});
 
 		test('should handle unknown methods', async ({ api }) => {
@@ -345,8 +339,20 @@ test.describe('MCP Service', () => {
 			const message = api.mcp.createMessage('unknown/method');
 			const response = await api.mcp.internalMcpSendMessage(apiKey, message);
 
-			const body = await response.text();
-			expect(body).toBeTruthy();
+			// Server returns 200 OK with SSE response containing error
+			expect(response.status()).toBe(200);
+			expect(response.headers()['content-type']).toContain('text/event-stream');
+
+			// Parse SSE format: extract JSON from "data: {...}" line
+			const text = await response.text();
+			const dataLine = text.split('\n').find((line) => line.startsWith('data:'))!;
+			const body = JSON.parse(dataLine.slice(5).trim()) as {
+				error: { code: number; message: string };
+			};
+
+			expect(body.error).toBeDefined();
+			expect(body.error.code).toBe(-32601); // Method not found
+			expect(body.error.message).toBeTruthy();
 		});
 
 		test('should handle invalid tool parameters', async ({ api }) => {
@@ -360,9 +366,23 @@ test.describe('MCP Service', () => {
 			});
 
 			const response = await api.mcp.internalMcpSendMessage(apiKey, message);
-			const body = await response.text();
 
-			expect(body).toBeTruthy();
+			// Server returns 200 OK with SSE response
+			expect(response.ok()).toBe(true);
+			expect(response.headers()['content-type']).toContain('text/event-stream');
+
+			// Parse SSE format: extract JSON from "data: {...}" line
+			const text = await response.text();
+			const dataLine = text.split('\n').find((line) => line.startsWith('data:'))!;
+			const body = JSON.parse(dataLine.slice(5).trim()) as {
+				error?: unknown;
+				result?: unknown;
+				jsonrpc: string;
+			};
+
+			expect(body.jsonrpc).toBe('2.0');
+			// Should return either a JSON-RPC error or a successful result
+			expect(body.error !== undefined || body.result !== undefined).toBe(true);
 		});
 	});
 });
