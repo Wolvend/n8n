@@ -44,7 +44,7 @@ export type CredentialListProject = {
 export function buildProjectsForCredential(credential: CredentialsEntity): CredentialListProject[] {
 	const shared = credential.shared ?? [];
 	return shared
-		.filter((sh) => sh.project?.id !== null)
+		.filter((sh) => typeof sh.project?.id === 'string')
 		.map((sh) => ({
 			id: sh.project!.id,
 			name: sh.project!.name ?? '',
