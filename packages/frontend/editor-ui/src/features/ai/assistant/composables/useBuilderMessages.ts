@@ -1,5 +1,5 @@
 import type { ChatUI } from '@n8n/design-system/types/assistant';
-import type { ChatRequest } from '../assistant.types';
+import type { ChatRequest, PlanMode } from '../assistant.types';
 import { useI18n } from '@n8n/i18n';
 import {
 	isTextMessage,
@@ -7,6 +7,7 @@ import {
 	isToolMessage,
 	isQuestionsMessage,
 	isPlanMessage,
+	isUserAnswersMessage,
 } from '../assistant.types';
 import { generateShortId } from '../builder.utils';
 
@@ -159,26 +160,58 @@ export function useBuilderMessages() {
 			} satisfies ChatUI.AssistantMessage);
 			shouldClearThinking = true;
 		} else if (isQuestionsMessage(msg)) {
-			messages.push({
-				id: messageId,
-				role: 'assistant',
-				type: 'custom',
-				customType: 'questions',
-				data: {
-					questions: msg.questions,
-					introMessage: msg.introMessage,
-				},
-				read: false,
-			} satisfies ChatUI.AssistantMessage);
+			// Check if we already have a questions message (prevent duplicates from streaming)
+			const existingQuestionsIndex = messages.findIndex(
+				(m) => m.type === 'custom' && 'customType' in m && m.customType === 'questions',
+			);
+			// Only add if no questions message exists, or if there's a user answer after the existing one
+			// (meaning this is a new round of questions)
+			const hasUserAnswerAfterQuestions =
+				existingQuestionsIndex !== -1 &&
+				messages.slice(existingQuestionsIndex + 1).some((m) => m.role === 'user');
+			if (existingQuestionsIndex === -1 || hasUserAnswerAfterQuestions) {
+				messages.push({
+					id: messageId,
+					role: 'assistant',
+					type: 'custom',
+					customType: 'questions',
+					data: {
+						questions: msg.questions,
+						introMessage: msg.introMessage,
+					},
+					read: false,
+				} satisfies ChatUI.AssistantMessage);
+			}
 			shouldClearThinking = true;
 		} else if (isPlanMessage(msg)) {
+			// Check if we already have a plan message (prevent duplicates from streaming)
+			const existingPlanIndex = messages.findIndex(
+				(m) => m.type === 'custom' && 'customType' in m && m.customType === 'plan',
+			);
+			// Only add if no plan message exists, or if there's a user response after the existing one
+			// (meaning this is a new plan after user feedback)
+			const hasUserResponseAfterPlan =
+				existingPlanIndex !== -1 &&
+				messages.slice(existingPlanIndex + 1).some((m) => m.role === 'user');
+			if (existingPlanIndex === -1 || hasUserResponseAfterPlan) {
+				messages.push({
+					id: messageId,
+					role: 'assistant',
+					type: 'custom',
+					customType: 'plan',
+					data: { plan: msg.plan },
+					read: false,
+				} satisfies ChatUI.AssistantMessage);
+			}
+			shouldClearThinking = true;
+		} else if (isUserAnswersMessage(msg)) {
+			// User answers from session replay - render as custom message
 			messages.push({
 				id: messageId,
-				role: 'assistant',
+				role: 'user',
 				type: 'custom',
-				customType: 'plan',
-				data: { plan: msg.plan },
-				read: false,
+				customType: 'user_answers',
+				data: { answers: msg.answers },
 			} satisfies ChatUI.AssistantMessage);
 			shouldClearThinking = true;
 		} else if (isWorkflowUpdatedMessage(msg)) {
@@ -352,6 +385,25 @@ export function useBuilderMessages() {
 		};
 	}
 
+	/**
+	 * Create a custom user message for displaying answers to plan mode questions.
+	 * This shows the user's answers in a nicely formatted way rather than raw JSON.
+	 */
+	function createUserAnswersMessage(
+		answers: PlanMode.QuestionResponse[],
+		id: string,
+	): PlanMode.UserAnswersMessage {
+		return {
+			id,
+			role: 'user',
+			type: 'custom',
+			customType: 'user_answers',
+			data: {
+				answers,
+			},
+		};
+	}
+
 	function createAssistantMessage(
 		content: string,
 		id: string,
@@ -453,6 +505,16 @@ export function useBuilderMessages() {
 			} satisfies ChatUI.AssistantMessage;
 		}
 
+		if (isUserAnswersMessage(message)) {
+			return {
+				id,
+				role: 'user',
+				type: 'custom',
+				customType: 'user_answers',
+				data: { answers: message.answers },
+			} satisfies ChatUI.AssistantMessage;
+		}
+
 		if (isWorkflowUpdatedMessage(message)) {
 			return {
 				...message,
@@ -498,6 +560,7 @@ export function useBuilderMessages() {
 	return {
 		processAssistantMessages,
 		createUserMessage,
+		createUserAnswersMessage,
 		createAssistantMessage,
 		createErrorMessage,
 		clearMessages,

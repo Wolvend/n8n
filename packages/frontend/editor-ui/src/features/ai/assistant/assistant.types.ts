@@ -207,6 +207,12 @@ export namespace ChatRequest {
 		plan: PlanMode.PlanOutput;
 	}
 
+	export interface ApiUserAnswersMessage {
+		role: 'user';
+		type: 'user_answers';
+		answers: PlanMode.QuestionResponse[];
+	}
+
 	// API-only types
 	export type MessageResponse =
 		| ((
@@ -220,6 +226,7 @@ export namespace ChatRequest {
 				| ChatUI.ErrorMessage
 				| ApiQuestionsMessage
 				| ApiPlanMessage
+				| ApiUserAnswersMessage
 		  ) & {
 				quickReplies?: ChatUI.QuickReply[];
 		  })
@@ -429,4 +436,10 @@ export function isQuestionsMessage(
 
 export function isPlanMessage(msg: ChatRequest.MessageResponse): msg is ChatRequest.ApiPlanMessage {
 	return 'type' in msg && msg.type === 'plan' && 'plan' in msg;
+}
+
+export function isUserAnswersMessage(
+	msg: ChatRequest.MessageResponse,
+): msg is ChatRequest.ApiUserAnswersMessage {
+	return 'type' in msg && msg.type === 'user_answers' && 'answers' in msg;
 }
