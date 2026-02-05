@@ -304,8 +304,8 @@ Guidelines:
 const TOOL_CALL_REQUIREMENT = `<output_requirement>
 Use tools when needed (e.g. search_nodes, submit_questions, get_documentation, get_workflow_examples).
 
-Your final response MUST be structured output that matches the response schema (nodesFound array).
-Do not add extra commentary outside the structured response.
+Your final response MUST call the submit_discovery_results tool with the nodesFound array.
+Do not output the results as text or XML.
 </output_requirement>`;
 
 function generateAvailableToolsList(options: DiscoveryPromptOptions): string {
@@ -321,6 +321,7 @@ function generateAvailableToolsList(options: DiscoveryPromptOptions): string {
 			'- get_workflow_examples: Find real community workflows as reference for structuring integrations',
 		);
 	}
+	tools.push('- submit_discovery_results: Submit final results');
 	return tools.join('\n');
 }
 

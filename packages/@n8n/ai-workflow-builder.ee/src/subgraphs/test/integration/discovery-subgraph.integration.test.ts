@@ -170,7 +170,7 @@ async function invokeDiscovery(
 		planOutput: null,
 	};
 	const result = await compiledDiscovery.invoke(input);
-	return result.discoveryContext;
+	return { nodesFound: result.nodesFound };
 }
 
 describe('Discovery Subgraph - Integration Tests', () => {
