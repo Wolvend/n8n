@@ -122,7 +122,7 @@ describe('RoleHoverPopover', () => {
 			expect(getByText('View and edit role')).toBeInTheDocument();
 		});
 
-		it('should show "View role details" for non-admin', () => {
+		it('should show "View role" for non-admin', () => {
 			vi.spyOn(usersStore, 'isInstanceOwner', 'get').mockReturnValue(false);
 			vi.spyOn(usersStore, 'isAdmin', 'get').mockReturnValue(false);
 
@@ -130,10 +130,10 @@ describe('RoleHoverPopover', () => {
 				props: { role: mockCustomRole },
 			});
 
-			expect(getByText('View role details')).toBeInTheDocument();
+			expect(getByText('View role')).toBeInTheDocument();
 		});
 
-		it('should show "View role details" for system role even if admin', () => {
+		it('should show "View role" for system role even if admin', () => {
 			vi.spyOn(usersStore, 'isInstanceOwner', 'get').mockReturnValue(true);
 			vi.spyOn(usersStore, 'isAdmin', 'get').mockReturnValue(false);
 
@@ -141,7 +141,7 @@ describe('RoleHoverPopover', () => {
 				props: { role: mockSystemRole },
 			});
 
-			expect(getByText('View role details')).toBeInTheDocument();
+			expect(getByText('View role')).toBeInTheDocument();
 		});
 	});
 
@@ -162,32 +162,36 @@ describe('RoleHoverPopover', () => {
 			});
 		});
 
-		it('should emit viewDetails for non-admin', async () => {
+		it('should navigate to view route for non-admin', async () => {
 			vi.spyOn(usersStore, 'isInstanceOwner', 'get').mockReturnValue(false);
 			vi.spyOn(usersStore, 'isAdmin', 'get').mockReturnValue(false);
 
-			const { getByText, emitted } = renderComponent({
+			const { getByText } = renderComponent({
 				props: { role: mockCustomRole },
 			});
 
-			await userEvent.click(getByText('View role details'));
+			await userEvent.click(getByText('View role'));
 
-			expect(emitted().viewDetails).toBeTruthy();
-			expect(emitted().viewDetails[0]).toEqual([mockCustomRole]);
+			expect(mockPush).toHaveBeenCalledWith({
+				name: 'ProjectRoleViewView',
+				params: { roleSlug: 'project:custom-role' },
+			});
 		});
 
-		it('should emit viewDetails for system role even if admin', async () => {
+		it('should navigate to view route for system role even if admin', async () => {
 			vi.spyOn(usersStore, 'isInstanceOwner', 'get').mockReturnValue(true);
 			vi.spyOn(usersStore, 'isAdmin', 'get').mockReturnValue(false);
 
-			const { getByText, emitted } = renderComponent({
+			const { getByText } = renderComponent({
 				props: { role: mockSystemRole },
 			});
 
-			await userEvent.click(getByText('View role details'));
+			await userEvent.click(getByText('View role'));
 
-			expect(emitted().viewDetails).toBeTruthy();
-			expect(emitted().viewDetails[0]).toEqual([mockSystemRole]);
+			expect(mockPush).toHaveBeenCalledWith({
+				name: 'ProjectRoleViewView',
+				params: { roleSlug: 'project:admin' },
+			});
 		});
 	});
 });
