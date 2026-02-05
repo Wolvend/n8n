@@ -29,6 +29,7 @@ jobs:
     name: Publish to NPM
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: npm
     permissions:
       id-token: write
     env:
