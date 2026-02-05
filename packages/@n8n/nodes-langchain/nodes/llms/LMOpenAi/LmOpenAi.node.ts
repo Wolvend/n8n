@@ -12,8 +12,7 @@ import { getProxyAgent } from '@utils/httpProxyAgent';
 import { Container } from '@n8n/di';
 import { AiConfig } from '@n8n/config';
 
-import { makeN8nLlmFailedAttemptHandler } from '../n8nLlmFailedAttemptHandler';
-import { N8nLlmTracing } from '../N8nLlmTracing';
+import { makeN8nLlmFailedAttemptHandler, N8nLlmTracing } from '@n8n/ai-utilities';
 
 type LmOpenAiOptions = {
 	baseURL?: string;

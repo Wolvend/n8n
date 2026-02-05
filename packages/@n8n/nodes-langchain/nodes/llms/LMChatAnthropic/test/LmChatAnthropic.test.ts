@@ -2,16 +2,14 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { ChatAnthropic } from '@langchain/anthropic';
+import { makeN8nLlmFailedAttemptHandler, N8nLlmTracing } from '@n8n/ai-utilities';
 import { createMockExecuteFunction } from 'n8n-nodes-base/test/nodes/Helpers';
 import type { INode, ISupplyDataFunctions } from 'n8n-workflow';
 
-import { makeN8nLlmFailedAttemptHandler } from '../../n8nLlmFailedAttemptHandler';
-import { N8nLlmTracing } from '../../N8nLlmTracing';
 import { LmChatAnthropic } from '../LmChatAnthropic.node';
 
 jest.mock('@langchain/anthropic');
-jest.mock('../../N8nLlmTracing');
-jest.mock('../../n8nLlmFailedAttemptHandler');
+jest.mock('@n8n/ai-utilities');
 jest.mock('@utils/httpProxyAgent', () => ({
 	getProxyAgent: jest.fn().mockReturnValue({}),
 }));

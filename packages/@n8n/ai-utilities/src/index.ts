@@ -6,9 +6,17 @@ export {
 	validateEmbedQueryInput,
 	validateEmbedDocumentsInput,
 } from './utils/embeddings-input-validation';
-export { getMetadataFiltersValues } from './utils/helpers';
+export { getMetadataFiltersValues, hasLongSequentialRepeat } from './utils/helpers';
 export { N8nBinaryLoader } from './utils/n8n-binary-loader';
 export { N8nJsonLoader } from './utils/n8n-json-loader';
+export { N8nLlmTracing } from './utils/n8n-llm-tracing';
+export {
+	estimateTokensFromStringList,
+	estimateTokensByCharCount,
+	estimateTextSplitsByTokens,
+} from './utils/tokenizer/token-estimator';
+export { encodingForModel, getEncoding } from './utils/tokenizer/tiktoken';
+export { makeN8nLlmFailedAttemptHandler } from './utils/failed-attempt-handler/n8nLlmFailedAttemptHandler';
 
 // Type guards
 export {

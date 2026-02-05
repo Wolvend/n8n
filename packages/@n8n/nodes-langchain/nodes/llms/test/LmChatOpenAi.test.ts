@@ -1,6 +1,7 @@
 /* eslint-disable n8n-nodes-base/node-filename-against-convention */
 /* eslint-disable @typescript-eslint/unbound-method */
 import { ChatOpenAI } from '@langchain/openai';
+import { makeN8nLlmFailedAttemptHandler, N8nLlmTracing } from '@n8n/ai-utilities';
 import { AiConfig } from '@n8n/config';
 import { Container } from '@n8n/di';
 import { createMockExecuteFunction } from 'n8n-nodes-base/test/nodes/Helpers';
@@ -8,12 +9,9 @@ import type { IDataObject, INode, ISupplyDataFunctions } from 'n8n-workflow';
 
 import * as common from '../LMChatOpenAi/common';
 import { LmChatOpenAi } from '../LMChatOpenAi/LmChatOpenAi.node';
-import { makeN8nLlmFailedAttemptHandler } from '../n8nLlmFailedAttemptHandler';
-import { N8nLlmTracing } from '../N8nLlmTracing';
 
 jest.mock('@langchain/openai');
-jest.mock('../N8nLlmTracing');
-jest.mock('../n8nLlmFailedAttemptHandler');
+jest.mock('@n8n/ai-utilities');
 jest.mock('../LMChatOpenAi/common');
 jest.mock('@utils/httpProxyAgent', () => ({
 	getProxyAgent: jest.fn().mockReturnValue({}),

@@ -11,5 +11,6 @@ export default defineConfig(nodeConfig, {
 		'no-case-declarations': 'warn',
 		'@typescript-eslint/require-await': 'warn',
 		'@typescript-eslint/prefer-nullish-coalescing': 'warn',
+		'@typescript-eslint/naming-convention': 'warn',
 	},
 });

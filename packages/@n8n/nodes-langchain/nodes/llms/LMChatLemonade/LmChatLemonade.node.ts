@@ -13,8 +13,7 @@ import { getConnectionHintNoticeField } from '@utils/sharedFields';
 import { getProxyAgent } from '@utils/httpProxyAgent';
 
 import { lemonadeModel, lemonadeOptions, lemonadeDescription } from '../LMLemonade/description';
-import { makeN8nLlmFailedAttemptHandler } from '../n8nLlmFailedAttemptHandler';
-import { N8nLlmTracing } from '../N8nLlmTracing';
+import { makeN8nLlmFailedAttemptHandler, N8nLlmTracing } from '@n8n/ai-utilities';
 
 export class LmChatLemonade implements INodeType {
 	description: INodeTypeDescription = {

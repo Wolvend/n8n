@@ -1,4 +1,5 @@
 import { DynamicTool, type Tool } from '@langchain/core/tools';
+import { hasLongSequentialRepeat } from '@n8n/ai-utilities';
 import { StructuredToolkit } from 'n8n-core';
 import { createMockExecuteFunction } from 'n8n-nodes-base/test/nodes/Helpers';
 import { NodeOperationError } from 'n8n-workflow';
@@ -8,7 +9,6 @@ import { z } from 'zod';
 import {
 	escapeSingleCurlyBrackets,
 	getConnectedTools,
-	hasLongSequentialRepeat,
 	unwrapNestedOutput,
 	getSessionId,
 } from '../helpers';

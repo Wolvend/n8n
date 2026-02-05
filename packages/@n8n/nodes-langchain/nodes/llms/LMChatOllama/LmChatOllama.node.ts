@@ -12,8 +12,7 @@ import { getConnectionHintNoticeField } from '@utils/sharedFields';
 import { proxyFetch } from '@utils/httpProxyAgent';
 
 import { ollamaModel, ollamaOptions, ollamaDescription } from '../LMOllama/description';
-import { makeN8nLlmFailedAttemptHandler } from '../n8nLlmFailedAttemptHandler';
-import { N8nLlmTracing } from '../N8nLlmTracing';
+import { makeN8nLlmFailedAttemptHandler, N8nLlmTracing } from '@n8n/ai-utilities';
 
 export class LmChatOllama implements INodeType {
 	description: INodeTypeDescription = {

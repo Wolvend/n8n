@@ -1,4 +1,5 @@
 import { AzureChatOpenAI } from '@langchain/openai';
+import { makeN8nLlmFailedAttemptHandler, N8nLlmTracing } from '@n8n/ai-utilities';
 import {
 	NodeOperationError,
 	NodeConnectionTypes,
@@ -19,8 +20,6 @@ import type {
 	AzureOpenAIOAuth2ModelConfig,
 	AzureOpenAIOptions,
 } from './types';
-import { makeN8nLlmFailedAttemptHandler } from '../n8nLlmFailedAttemptHandler';
-import { N8nLlmTracing } from '../N8nLlmTracing';
 
 export class LmChatAzureOpenAi implements INodeType {
 	description: INodeTypeDescription = {
