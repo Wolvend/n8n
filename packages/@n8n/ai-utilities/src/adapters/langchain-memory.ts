@@ -3,7 +3,7 @@ import { ChatMessageHistory as LangchainChatMessageHistory } from '@langchain/co
 import type { BaseChatMessageHistory as LangchainBaseChatMessageHistory } from '@langchain/core/chat_history';
 import type { InputValues, MemoryVariables, OutputValues } from '@langchain/core/memory';
 
-import { toLcMessage } from '../storage/message-utils';
+import { toLcMessage } from '../converters/message';
 import type { ChatMemory } from '../types/memory';
 
 /** Internal adapter - used by supplyMemory() */

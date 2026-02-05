@@ -1,6 +1,7 @@
 import * as LangchainMessages from '@langchain/core/messages';
 
 import type * as N8nMessages from '../types/message';
+import type { Message, MessageContent } from '../types/message';
 
 function fromLcRole(role: LangchainMessages.MessageType): N8nMessages.MessageRole {
 	switch (role) {
@@ -218,4 +219,34 @@ export function fromLcMessage(msg: LangchainMessages.BaseMessage): N8nMessages.M
 		};
 	}
 	throw new Error(`Provided message is not a valid Langchain message: ${JSON.stringify(msg)}`);
+}
+
+export function toLcMessage(message: Message): LangchainMessages.BaseMessage {
+	const text = message.content
+		.filter((c): c is MessageContent & { type: 'text' } => c.type === 'text')
+		.map((c) => c.text)
+		.join('');
+
+	switch (message.role) {
+		case 'system':
+			return new LangchainMessages.SystemMessage(text);
+		case 'human':
+			return new LangchainMessages.HumanMessage(text);
+		case 'ai':
+			return new LangchainMessages.AIMessage(text);
+		case 'tool': {
+			const toolResult = message.content.find((c) => c.type === 'tool-result');
+			const toolCallId =
+				toolResult && 'toolCallId' in toolResult ? toolResult.toolCallId : 'unknown';
+			const content =
+				toolResult && 'result' in toolResult
+					? typeof toolResult.result === 'string'
+						? toolResult.result
+						: JSON.stringify(toolResult.result)
+					: text || '[missing tool result]';
+			return new LangchainMessages.ToolMessage({ content, tool_call_id: toolCallId });
+		}
+		default:
+			return new LangchainMessages.HumanMessage(text);
+	}
 }

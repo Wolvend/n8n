@@ -1,8 +1,7 @@
 import type { RedisChatMessageHistoryInput } from '@langchain/redis';
 import { RedisChatMessageHistory } from '@langchain/redis';
 
-import { toLcMessage } from './message-utils';
-import { fromLcMessage } from '../converters/message';
+import { fromLcMessage, toLcMessage } from '../converters/message';
 import { BaseChatHistory } from '../memory/base-chat-history';
 import type { Message } from '../types/message';
 
