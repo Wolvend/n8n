@@ -262,7 +262,7 @@ describe('TriggerValidationService', () => {
 
 			await service.validateWorkflowActivation(workflow);
 
-			expect(mockWorkflowRepository.findById).not.toHaveBeenCalled();
+			expect(mockWorkflowRepository.find).not.toHaveBeenCalled();
 		});
 
 		it('should throw TriggerParameterConflictError when groupId conflicts with active workflow', async () => {
@@ -271,13 +271,15 @@ describe('TriggerValidationService', () => {
 			});
 
 			mockActiveWorkflows.allActiveWorkflows.mockReturnValue(['workflow-1', 'workflow-2']);
-			mockWorkflowRepository.findById.mockResolvedValue({
-				id: 'workflow-2',
-				name: 'Active Workflow',
-				activeVersion: {
-					nodes: [createKafkaTriggerNode('Other Kafka', 'shared-group')],
-				},
-			} as any);
+			mockWorkflowRepository.find.mockResolvedValue([
+				{
+					id: 'workflow-2',
+					name: 'Active Workflow',
+					activeVersion: {
+						nodes: [createKafkaTriggerNode('Other Kafka', 'shared-group')],
+					},
+				} as any,
+			]);
 
 			await expect(service.validateWorkflowActivation(workflow)).rejects.toThrow(
 				TriggerParameterConflictError,
@@ -290,13 +292,15 @@ describe('TriggerValidationService', () => {
 			});
 
 			mockActiveWorkflows.allActiveWorkflows.mockReturnValue(['workflow-1', 'workflow-2']);
-			mockWorkflowRepository.findById.mockResolvedValue({
-				id: 'workflow-2',
-				name: 'Active Workflow',
-				activeVersion: {
-					nodes: [createKafkaTriggerNode('Other Kafka', 'group-2')],
-				},
-			} as any);
+			mockWorkflowRepository.find.mockResolvedValue([
+				{
+					id: 'workflow-2',
+					name: 'Active Workflow',
+					activeVersion: {
+						nodes: [createKafkaTriggerNode('Other Kafka', 'group-2')],
+					},
+				} as any,
+			]);
 
 			await expect(service.validateWorkflowActivation(workflow)).resolves.not.toThrow();
 		});
@@ -307,11 +311,13 @@ describe('TriggerValidationService', () => {
 			});
 
 			mockActiveWorkflows.allActiveWorkflows.mockReturnValue(['workflow-1', 'workflow-2']);
-			mockWorkflowRepository.findById.mockResolvedValue({
-				id: 'workflow-2',
-				name: 'Draft Workflow',
-				activeVersion: null,
-			} as any);
+			mockWorkflowRepository.find.mockResolvedValue([
+				{
+					id: 'workflow-2',
+					name: 'Draft Workflow',
+					activeVersion: null,
+				} as any,
+			]);
 
 			await expect(service.validateWorkflowActivation(workflow)).resolves.not.toThrow();
 		});
@@ -327,7 +333,7 @@ describe('TriggerValidationService', () => {
 
 			await service.validateWorkflowActivation(workflow);
 
-			expect(mockWorkflowRepository.findById).not.toHaveBeenCalled();
+			expect(mockWorkflowRepository.find).not.toHaveBeenCalled();
 		});
 
 		it('should check multiple active workflows for conflicts', async () => {
@@ -340,27 +346,25 @@ describe('TriggerValidationService', () => {
 				'workflow-2',
 				'workflow-3',
 			]);
-			mockWorkflowRepository.findById.mockImplementation(async (id) => {
-				if (id === 'workflow-2') {
-					return {
-						id: 'workflow-2',
-						name: 'Active Workflow 2',
-						activeVersion: {
-							nodes: [createKafkaTriggerNode('Kafka 2', 'group-2')],
-						},
-					} as any;
-				}
-				return {
+			mockWorkflowRepository.find.mockResolvedValue([
+				{
+					id: 'workflow-2',
+					name: 'Active Workflow 2',
+					activeVersion: {
+						nodes: [createKafkaTriggerNode('Kafka 2', 'group-2')],
+					},
+				} as any,
+				{
 					id: 'workflow-3',
 					name: 'Active Workflow 3',
 					activeVersion: {
 						nodes: [createKafkaTriggerNode('Kafka 3', 'group-3')],
 					},
-				} as any;
-			});
+				} as any,
+			]);
 
 			await expect(service.validateWorkflowActivation(workflow)).resolves.not.toThrow();
-			expect(mockWorkflowRepository.findById).toHaveBeenCalledTimes(2);
+			expect(mockWorkflowRepository.find).toHaveBeenCalledTimes(1);
 		});
 	});
 });

@@ -1,4 +1,4 @@
-import { WorkflowEntity, WorkflowRepository } from '@n8n/db';
+import { In, WorkflowEntity, WorkflowRepository } from '@n8n/db';
 import { Service } from '@n8n/di';
 import { ActiveWorkflows } from 'n8n-core';
 import { type INode, type Workflow, type IWorkflowBase } from 'n8n-workflow';
@@ -67,11 +67,15 @@ export class TriggerValidationService {
 
 		if (!activeWorkflowIds.length) return;
 
-		for (const activeWorkflowId of activeWorkflowIds) {
-			const workflow = await this.workflowRepository.findById(activeWorkflowId);
-			if (!workflow?.activeVersion) continue;
+		const activeWorkflows = await this.workflowRepository.find({
+			where: { id: In(activeWorkflowIds) },
+			relations: { activeVersion: true },
+		});
 
-			this.assertNoConflicts(enabledNodes, workflow.activeVersion.nodes, workflow.name);
+		for (const activeWorkflow of activeWorkflows) {
+			if (!activeWorkflow.activeVersion) continue;
+
+			this.assertNoConflicts(enabledNodes, activeWorkflow.activeVersion.nodes, activeWorkflow.name);
 		}
 	}
 
