@@ -22,7 +22,7 @@ export class LmChatOpenAiSimple implements INodeType {
 		displayName: 'OpenAI Simple',
 
 		name: 'lmChatOpenAiSimple',
-		icon: 'fa:openai',
+		icon: 'fa:robot',
 		group: ['transform'],
 		version: [1],
 		description: 'For advanced usage with an AI chain',
@@ -75,15 +75,13 @@ export class LmChatOpenAiSimple implements INodeType {
 			providerTools.push(...builtInToolsParams);
 		}
 
-		return {
-			response: supplyModel(this, {
-				type: 'openai',
-				baseUrl: credentials.url as string,
-				apiKey: credentials.apiKey as string,
-				model: modelName,
-				temperature: options.temperature,
-				providerTools,
-			}),
-		};
+		return supplyModel(this, {
+			type: 'openai',
+			baseUrl: credentials.url as string,
+			apiKey: credentials.apiKey as string,
+			model: modelName,
+			temperature: options.temperature,
+			providerTools,
+		});
 	}
 }

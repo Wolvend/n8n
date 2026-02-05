@@ -23,7 +23,7 @@ export class LmChatOpenAiCustom implements INodeType {
 		displayName: 'Custom OpenAI',
 
 		name: 'lmChatOpenAiCustom',
-		icon: 'fa:openai',
+		icon: 'fa:robot',
 		group: ['transform'],
 		version: [1],
 		description: 'For advanced usage with an AI chain',
@@ -88,8 +88,6 @@ export class LmChatOpenAiCustom implements INodeType {
 			temperature: options.temperature,
 		});
 
-		return {
-			response: supplyModel(this, model),
-		};
+		return supplyModel(this, model);
 	}
 }
