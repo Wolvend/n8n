@@ -42,7 +42,6 @@ import { useToast } from '@/app/composables/useToast';
 import { createEventBus } from '@n8n/utils/event-bus';
 import type { WorkflowVersionFormModalEventBusEvents } from '@/features/workflows/workflowHistory/components/WorkflowVersionFormModal.vue';
 import { useWorkflowHistoryStore } from '@/features/workflows/workflowHistory/workflowHistory.store';
-import type { WorkflowVersionMetadata } from '@n8n/rest-api-client/api/workflowHistory';
 import { useKeybindings } from '@/app/composables/useKeybindings';
 
 const props = defineProps<{
@@ -366,14 +365,14 @@ const onNameVersion = async () => {
 		}
 	}
 
-	const currentVersion = workflowsStore.workflow.versionId;
-	const currentVersionData = workflowsStore.versionData;
+	const versionId = workflowsStore.workflow.versionId;
+	const versionData = workflowsStore.versionData;
 
 	const nameVersionEventBus = createEventBus<WorkflowVersionFormModalEventBusEvents>();
 	const modalData = ref({
-		versionId: currentVersion,
-		versionName: currentVersionData?.name ?? undefined,
-		description: currentVersionData?.description ?? undefined,
+		versionId,
+		versionName: versionData?.name ?? undefined,
+		description: versionData?.description ?? undefined,
 		modalTitle: i18n.baseText('workflowHistory.nameVersionModal.title'),
 		submitButtonLabel: i18n.baseText('workflowHistory.nameVersionModal.confirmButton'),
 		submitting: false,
@@ -386,19 +385,16 @@ const onNameVersion = async () => {
 			modalData.value.submitting = true;
 
 			try {
-				await workflowHistoryStore.updateWorkflowHistoryVersion(props.id, currentVersion, {
+				await workflowHistoryStore.updateWorkflowHistoryVersion(props.id, versionId, {
 					name: submitData.name,
 					description: submitData.description,
 				});
 
-				if (currentVersionData) {
-					const updatedVersion: WorkflowVersionMetadata = {
-						versionId: currentVersionData.versionId,
-						name: submitData.name,
-						description: submitData.description,
-					};
-					workflowsStore.setWorkflowVersionMetadata(updatedVersion);
-				}
+				workflowsStore.setWorkflowVersionData({
+					versionId,
+					name: submitData.name,
+					description: submitData.description,
+				});
 
 				toast.showMessage({
 					title: i18n.baseText('workflowHistory.action.nameVersion.success.title'),

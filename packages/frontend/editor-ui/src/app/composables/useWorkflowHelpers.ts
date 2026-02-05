@@ -967,7 +967,14 @@ export function useWorkflowHelpers() {
 		});
 		ws.setWorkflowSettings(workflowData.settings ?? {});
 		ws.setWorkflowPinData(workflowData.pinData ?? {});
-		workflowsStore.setWorkflowVersionId(workflowData.versionId, workflowData.checksum);
+		workflowsStore.setWorkflowVersionData(
+			{
+				versionId: workflowData.versionId,
+				name: null,
+				description: null,
+			},
+			workflowData.checksum,
+		);
 		ws.setWorkflowMetadata(workflowData.meta);
 		ws.setWorkflowScopes(workflowData.scopes);
 
@@ -983,13 +990,13 @@ export function useWorkflowHelpers() {
 					workflowData.id,
 					workflowData.versionId,
 				);
-				workflowsStore.setWorkflowVersionMetadata({
+				workflowsStore.setWorkflowVersionData({
 					versionId: versionData.versionId,
 					name: versionData.name,
 					description: versionData.description,
 				});
 			} catch {
-				workflowsStore.setWorkflowVersionMetadata(null);
+				// Do nothing
 			}
 		}
 

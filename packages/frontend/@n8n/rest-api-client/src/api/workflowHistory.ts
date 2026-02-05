@@ -13,7 +13,7 @@ export type WorkflowHistory = {
 	description: string | null;
 };
 
-export type WorkflowVersionMetadata = Pick<WorkflowHistory, 'versionId' | 'name' | 'description'>;
+export type WorkflowVersionData = Pick<WorkflowHistory, 'versionId' | 'name' | 'description'>;
 
 export type WorkflowPublishHistory = {
 	createdAt: string;
