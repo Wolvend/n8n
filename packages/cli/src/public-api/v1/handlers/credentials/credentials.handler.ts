@@ -62,12 +62,16 @@ export = {
 			const offset = Number(req.query.offset) || 0;
 			const limit = Math.min(Number(req.query.limit) || 100, 250);
 
-			const [credentials, count] = await Container.get(CredentialsRepository).findManyAndCount({
+			const repo = Container.get(CredentialsRepository);
+			const [credentials, count] = await repo.findAndCount({
 				take: limit,
 				skip: offset,
+				select: ['id', 'name', 'type', 'createdAt', 'updatedAt'],
+				relations: ['shared', 'shared.project'],
+				order: { createdAt: 'DESC' },
 			});
 
-			const data = credentials.map((credential) => {
+			const data = credentials.map((credential: CredentialsEntity) => {
 				const projects = buildProjectsForCredential(credential);
 				return {
 					id: credential.id,

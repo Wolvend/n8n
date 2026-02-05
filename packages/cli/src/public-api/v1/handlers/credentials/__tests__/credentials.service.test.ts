@@ -8,12 +8,12 @@ import { buildProjectsForCredential, toJsonSchema } from '../credentials.service
 describe('CredentialsService', () => {
 	describe('buildProjectsForCredential', () => {
 		it('returns empty array when credential has no shared', () => {
-			const credential = { shared: undefined } as CredentialsEntity;
+			const credential = { shared: undefined } as unknown as CredentialsEntity;
 			expect(buildProjectsForCredential(credential)).toEqual([]);
 		});
 
 		it('returns empty array when credential has empty shared', () => {
-			const credential = { shared: [] } as CredentialsEntity;
+			const credential = { shared: [] } as unknown as CredentialsEntity;
 			expect(buildProjectsForCredential(credential)).toEqual([]);
 		});
 
