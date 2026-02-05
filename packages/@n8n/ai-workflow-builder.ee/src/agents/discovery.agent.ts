@@ -15,6 +15,7 @@ import { buildDiscoveryPrompt } from '@/prompts';
 import { createGetDocumentationTool } from '@/tools/get-documentation.tool';
 import { createGetWorkflowExamplesTool } from '@/tools/get-workflow-examples.tool';
 import { createNodeSearchTool } from '@/tools/node-search.tool';
+import { submitQuestionsTool } from '@/tools/submit-questions.tool';
 import type { BuilderFeatureFlags } from '@/workflow-builder-agent';
 
 /**
@@ -78,6 +79,7 @@ export function createDiscoveryAgent(config: DiscoveryAgentConfig) {
 	// Build tools array - search_nodes is always included
 	const tools = [
 		createNodeSearchTool(config.parsedNodeTypes).tool,
+		submitQuestionsTool,
 		...(includeExamples
 			? [createGetDocumentationTool().tool, createGetWorkflowExamplesTool(config.logger).tool]
 			: []),

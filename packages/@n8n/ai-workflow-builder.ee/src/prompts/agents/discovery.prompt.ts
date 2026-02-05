@@ -52,13 +52,13 @@ When a trigger or node outputs multiple items (e.g., Gmail returns 10 emails), e
 
 const PROCESS = `1. Search for nodes matching the user's request using search_nodes tool
 2. Identify connection-changing parameters from input/output expressions (look for $parameter.X)
-3. Call submit_discovery_results with your nodesFound array to pass structured data to the next agent`;
+3. Return your final nodesFound array as structured output matching the response schema`;
 
 const PROCESS_WITH_EXAMPLES = `1. Search for nodes matching the user's request using search_nodes tool
 2. Identify connection-changing parameters from input/output expressions (look for $parameter.X)
 3. Use get_documentation to retrieve best practices for relevant workflow techniques—this provides proven patterns that improve workflow quality
 4. Use get_workflow_examples to find real community workflows using mentioned services—these examples show how experienced users structure similar integrations
-5. Submit your findings with submit_discovery_results to pass structured data to the next agent`;
+5. Return your final nodesFound array as structured output matching the response schema`;
 
 const AI_NODE_SELECTION = `AI node selection guidance:
 
@@ -202,6 +202,17 @@ Chat Trigger: n8n-hosted chat interface for conversational AI.
 Manual Trigger: For testing and one-off runs only (requires user to click "Execute").
   Use when: explicitly testing or debugging workflows`;
 
+const CLARIFYING_QUESTIONS = `Clarifying questions:
+
+Before searching for nodes, if the user's request is ambiguous or missing critical information, ask up to 5 focused questions using submit_questions.
+
+Ask questions only when the answer materially changes node selection or trigger choice (e.g. which app/service, what starts the workflow, where to store results).
+Prefer providing options for single/multi choice questions.
+
+If the request is clear enough to proceed, do not ask questions and start node discovery immediately.
+
+When you call submit_questions, the workflow pauses until the user responds. After they respond, the tool returns a summary of their answers and you should continue node discovery using the clarified requirements.`;
+
 const AI_TOOL_PATTERNS = `AI Agent tool connection patterns:
 
 When AI Agent needs external capabilities, use TOOL nodes (not regular nodes):
@@ -290,17 +301,17 @@ Guidelines:
 - Baseline flow control nodes (Aggregate, IF, Switch, Split Out, Merge, Set) are automatically included—no need to search for them
 - Prioritize native nodes in your searches because they provide better UX and visual debugging than Code node alternatives`;
 
-const TOOL_CALL_REQUIREMENT = `<tool_call_requirement>
-Always use the tool calling API to submit your results. The downstream pipeline parses your output by reading the structured tool_calls from the API response, not by parsing text content.
+const TOOL_CALL_REQUIREMENT = `<output_requirement>
+Use tools when needed (e.g. search_nodes, submit_questions, get_documentation, get_workflow_examples).
 
-When you're ready to submit results, invoke the submit_discovery_results tool directly through the tool calling interface. Do not output results as text, XML tags, or any other format—even if the format looks correct, the system cannot process it unless you use an actual tool call.
-
-If you find yourself writing something like "<invoke name=..." or outputting the nodesFound array as text, stop and use the tool call instead. Only tool_calls in the API response are processed by the system.
-</tool_call_requirement>`;
+Your final response MUST be structured output that matches the response schema (nodesFound array).
+Do not add extra commentary outside the structured response.
+</output_requirement>`;
 
 function generateAvailableToolsList(options: DiscoveryPromptOptions): string {
 	const tools = [
 		'- search_nodes: Find n8n nodes by keyword (returns name, version, inputs, outputs)',
+		'- submit_questions: Ask clarifying questions when critical details are missing',
 	];
 	if (options.includeExamples) {
 		tools.push(
@@ -310,7 +321,6 @@ function generateAvailableToolsList(options: DiscoveryPromptOptions): string {
 			'- get_workflow_examples: Find real community workflows as reference for structuring integrations',
 		);
 	}
-	tools.push('- submit_discovery_results: Submit final results');
 	return tools.join('\n');
 }
 
@@ -323,6 +333,7 @@ export function buildDiscoveryPrompt(options: DiscoveryPromptOptions): string {
 		.sectionIf(!options.includeExamples, 'process', PROCESS)
 		.sectionIf(options.includeExamples, 'process', PROCESS_WITH_EXAMPLES)
 		.section('tool_call_requirement', TOOL_CALL_REQUIREMENT)
+		.section('clarifying_questions', CLARIFYING_QUESTIONS)
 		.section('n8n_execution_model', N8N_EXECUTION_MODEL)
 		.section('baseline_flow_control', BASELINE_FLOW_CONTROL)
 		.section('trigger_selection', TRIGGER_SELECTION)
