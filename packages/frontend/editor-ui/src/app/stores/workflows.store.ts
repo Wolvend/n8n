@@ -137,7 +137,7 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 		createWorkflowObject(workflow.value.nodes, workflow.value.connections),
 	);
 
-	const currentVersion = ref<WorkflowVersionMetadata | null>(null);
+	const versionData = ref<WorkflowVersionMetadata | null>(null);
 	const usedCredentials = ref<Record<string, IUsedCredential>>({});
 
 	const currentWorkflowExecutions = ref<ExecutionSummary[]>([]);
@@ -665,7 +665,7 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 	}
 
 	function setWorkflowCurrentVersion(version: WorkflowVersionMetadata | null) {
-		currentVersion.value = deepCopy(version);
+		versionData.value = deepCopy(version);
 	}
 
 	// replace invalid credentials in workflow
@@ -1778,7 +1778,7 @@ export const useWorkflowsStore = defineStore(STORES.WORKFLOWS, () => {
 
 	return {
 		workflow,
-		currentVersion,
+		versionData,
 		usedCredentials,
 		currentWorkflowExecutions,
 		workflowExecutionData,

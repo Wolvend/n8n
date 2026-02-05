@@ -80,18 +80,18 @@ function onModalOpened() {
 }
 
 onMounted(() => {
-	const currentVersion = workflowsStore.currentVersion;
+	const versionData = workflowsStore.versionData;
 
 	if (!versionName.value) {
-		if (currentVersion?.name) {
-			versionName.value = currentVersion.name;
+		if (versionData?.name) {
+			versionName.value = versionData.name;
 		} else {
 			versionName.value = generateVersionName(workflowsStore.workflow.versionId);
 		}
 	}
 
-	if (!description.value && currentVersion?.description) {
-		description.value = currentVersion.description;
+	if (!description.value && versionData?.description) {
+		description.value = versionData.description;
 	}
 
 	modalBus.on('opened', onModalOpened);

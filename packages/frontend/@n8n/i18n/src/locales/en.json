@@ -3486,6 +3486,7 @@
 	"workflowHistory.action.nameVersion.success.title": "Version name updated successfully",
 	"workflowHistory.action.nameVersion.error.title": "Failed to update version name",
 	"workflowHistory.nameVersionModal.title": "Name version",
+	"workflowHistory.nameVersionModal.confirmButton": "Save",
 	"workflowHistory.action.unpublish.notAvailable": "This workflow has no published version to unpublish",
 	"workflowHistory.action.unpublish.modal.title": "Unpublish {versionName}",
 	"workflowHistory.action.unpublish.modal.description": "This will prevent all production executions to this workflow until you publish again.",

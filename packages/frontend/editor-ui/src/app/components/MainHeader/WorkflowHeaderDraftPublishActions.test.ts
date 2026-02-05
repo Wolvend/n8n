@@ -506,7 +506,7 @@ describe('WorkflowHeaderDraftPublishActions', () => {
 				versionId: 'version-1',
 				updatedAt: Date.now(),
 			};
-			workflowsStore.currentVersion = {
+			workflowsStore.versionData = {
 				versionId: 'version-1',
 				name: 'Test Version',
 				description: 'Test description',

@@ -360,7 +360,7 @@ const onNameVersion = async () => {
 	}
 
 	const currentVersion = workflowsStore.workflow.versionId;
-	const currentVersionData = workflowsStore.currentVersion;
+	const currentVersionData = workflowsStore.versionData;
 
 	const nameVersionEventBus = createEventBus<WorkflowVersionFormModalEventBusEvents>();
 	const modalData = ref({
@@ -368,7 +368,7 @@ const onNameVersion = async () => {
 		versionName: currentVersionData?.name ?? undefined,
 		description: currentVersionData?.description ?? undefined,
 		modalTitle: i18n.baseText('workflowHistory.nameVersionModal.title'),
-		submitButtonLabel: i18n.baseText('generic.nameVersion'),
+		submitButtonLabel: i18n.baseText('workflowHistory.nameVersionModal.confirmButton'),
 		submitting: false,
 		eventBus: nameVersionEventBus,
 	});

@@ -340,7 +340,7 @@ const nameWorkflowVersion = async (id: WorkflowVersionId, data: WorkflowHistoryA
 		versionName: data.versionName,
 		description: data.description,
 		modalTitle: i18n.baseText('workflowHistory.nameVersionModal.title'),
-		submitButtonLabel: i18n.baseText('generic.nameVersion'),
+		submitButtonLabel: i18n.baseText('workflowHistory.nameVersionModal.confirmButton'),
 		submitting: false,
 		eventBus: nameVersionEventBus,
 	});
