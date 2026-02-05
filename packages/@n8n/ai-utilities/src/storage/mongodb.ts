@@ -1,5 +1,5 @@
+import type { MongoDBChatMessageHistoryInput } from '@langchain/mongodb';
 import { MongoDBChatMessageHistory } from '@langchain/mongodb';
-import type { Collection, Document } from 'mongodb';
 
 import { toLcMessage } from './message-utils';
 import { fromLcMessage } from '../converters/message';
@@ -7,7 +7,8 @@ import { BaseChatHistory } from '../memory/base-chat-history';
 import type { Message } from '../types/message';
 
 export interface MongoDBChatHistoryConfig {
-	collection: Collection<Document>;
+	/** MongoDB collection instance - pass your connected collection directly */
+	collection: MongoDBChatMessageHistoryInput['collection'];
 	sessionId: string;
 }
 

@@ -1,6 +1,5 @@
-import { RedisChatMessageHistory } from '@langchain/redis';
 import type { RedisChatMessageHistoryInput } from '@langchain/redis';
-import type { RedisClientType } from 'redis';
+import { RedisChatMessageHistory } from '@langchain/redis';
 
 import { toLcMessage } from './message-utils';
 import { fromLcMessage } from '../converters/message';
@@ -8,7 +7,8 @@ import { BaseChatHistory } from '../memory/base-chat-history';
 import type { Message } from '../types/message';
 
 export interface RedisChatHistoryConfig {
-	client: RedisClientType;
+	/** Redis client instance - pass your connected client directly */
+	client: RedisChatMessageHistoryInput['client'];
 	sessionId: string;
 	sessionTTL?: number;
 }

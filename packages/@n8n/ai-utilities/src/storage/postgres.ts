@@ -1,5 +1,5 @@
+import type { PostgresChatMessageHistoryInput } from '@langchain/community/stores/message/postgres';
 import { PostgresChatMessageHistory } from '@langchain/community/stores/message/postgres';
-import type { Pool } from 'pg';
 
 import { toLcMessage } from './message-utils';
 import { fromLcMessage } from '../converters/message';
@@ -7,7 +7,8 @@ import { BaseChatHistory } from '../memory/base-chat-history';
 import type { Message } from '../types/message';
 
 export interface PostgresChatHistoryConfig {
-	pool: Pool;
+	/** pg Pool instance - pass your connected pool directly */
+	pool: PostgresChatMessageHistoryInput['pool'];
 	sessionId: string;
 	tableName?: string;
 }

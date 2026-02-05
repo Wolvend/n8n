@@ -28,7 +28,7 @@ pnpm dev
 Pass config directly to `supplyModel` for providers that follow the OpenAI API format:
 
 ```typescript
-import { supplyModel } from '@n8n/ai-node-sdk';
+import { supplyModel } from '@n8n/ai-utilities';
 
 return supplyModel(this, {
   type: 'openai',
@@ -43,7 +43,7 @@ return supplyModel(this, {
 Extend `BaseChatModel` and implement `generate()` + `stream()`:
 
 ```typescript
-import { BaseChatModel, supplyModel, type Message, type GenerateResult, type StreamChunk } from '@n8n/ai-node-sdk';
+import { BaseChatModel, supplyModel, type Message, type GenerateResult, type StreamChunk } from '@n8n/ai-utilities';
 
 class MyChatModel extends BaseChatModel {
   async generate(messages: Message[]): Promise<GenerateResult> {
@@ -95,7 +95,7 @@ async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyD
 **After (SDK):**
 
 ```typescript
-import { supplyModel } from '@n8n/ai-node-sdk';
+import { supplyModel } from '@n8n/ai-utilities';
 
 async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
   const credentials = await this.getCredentials<{ url: string; apiKey: string }>('openRouterApi');
@@ -129,7 +129,7 @@ import {
   type GenerateResult,
   type StreamChunk,
   type ChatModelConfig,
-} from '@n8n/ai-node-sdk';
+} from '@n8n/ai-utilities';
 import { NodeConnectionTypes, type INodeType, type ISupplyDataFunctions, type SupplyData } from 'n8n-workflow';
 
 // Custom chat model extending BaseChatModel
@@ -261,7 +261,7 @@ The SDK uses n8n-specific naming to avoid confusion with LangChain classes:
 Use the SDK's built-in `InMemoryChatHistory` for prototyping or testing:
 
 ```typescript
-import { InMemoryChatHistory, WindowedChatMemory, supplyMemory } from '@n8n/ai-node-sdk';
+import { InMemoryChatHistory, WindowedChatMemory, supplyMemory } from '@n8n/ai-utilities';
 
 async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
   const sessionId = this.getNodeParameter('sessionId', itemIndex) as string;
@@ -287,7 +287,7 @@ import {
   MongoDBChatHistory,    // MongoDB
   WindowedChatMemory, 
   supplyMemory 
-} from '@n8n/ai-node-sdk';
+} from '@n8n/ai-utilities';
 
 async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
   const credentials = await this.getCredentials('redis');
@@ -325,7 +325,7 @@ import {
   WindowedChatMemory,
   supplyMemory,
   type Message,
-} from '@n8n/ai-node-sdk';
+} from '@n8n/ai-utilities';
 
 class MyChatHistory extends BaseChatHistory {
   constructor(private sessionId: string) {
@@ -362,7 +362,7 @@ import {
   type Message,
   type ChatHistory,
   type ChatMemory,
-} from '@n8n/ai-node-sdk';
+} from '@n8n/ai-utilities';
 
 class MyCustomChatMemory extends BaseChatMemory {
   constructor(private _chatHistory: ChatHistory) {
@@ -442,7 +442,7 @@ async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyD
 **After (SDK):**
 
 ```typescript
-import { RedisChatHistory, WindowedChatMemory, supplyMemory } from '@n8n/ai-node-sdk';
+import { RedisChatHistory, WindowedChatMemory, supplyMemory } from '@n8n/ai-utilities';
 
 async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
   const credentials = await this.getCredentials('redis');
@@ -474,7 +474,7 @@ import {
   WindowedChatMemory,
   supplyMemory,
   type Message,
-} from '@n8n/ai-node-sdk';
+} from '@n8n/ai-utilities';
 import { 
   NodeConnectionTypes, 
   type INodeType, 
@@ -594,12 +594,12 @@ export class MemoryImaginaryDb implements INodeType {
 
 | Before (LangChain) | After (SDK) |
 |--------------------|-------------|
-| `import { ChatOpenAI } from '@langchain/openai'` | `import { supplyModel } from '@n8n/ai-node-sdk'` |
+| `import { ChatOpenAI } from '@langchain/openai'` | `import { supplyModel } from '@n8n/ai-utilities'` |
 | `new ChatOpenAI({ ... })` | `supplyModel(this, { type: 'openai', ... })` |
 | Custom model provider | `class MyModel extends BaseChatModel { ... }` |
 | `return { response: model }` | `return supplyModel(this, model)` |
-| `import { BufferWindowMemory } from '@langchain/classic/memory'` | `import { WindowedChatMemory } from '@n8n/ai-node-sdk'` |
-| `import { RedisChatMessageHistory } from '@langchain/redis'` | `import { RedisChatHistory } from '@n8n/ai-node-sdk'` |
+| `import { BufferWindowMemory } from '@langchain/classic/memory'` | `import { WindowedChatMemory } from '@n8n/ai-utilities'` |
+| `import { RedisChatMessageHistory } from '@langchain/redis'` | `import { RedisChatHistory } from '@n8n/ai-utilities'` |
 | Custom storage backend | `class MyHistory extends BaseChatHistory { ... }` |
 | `return { response: logWrapper(memory, this) }` | `return supplyMemory(this, memory)` |
 | LangChain message types | `Message` with roles: `system`, `human`, `ai`, `tool` |
