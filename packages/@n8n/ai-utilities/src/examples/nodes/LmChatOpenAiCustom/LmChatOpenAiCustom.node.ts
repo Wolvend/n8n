@@ -66,17 +66,12 @@ export class LmChatOpenAiCustom implements INodeType {
 
 	async supplyData(this: ISupplyDataFunctions, itemIndex: number): Promise<SupplyData> {
 		const credentials = await this.getCredentials('openAiApi');
-		console.log('get model name');
 		const modelName = this.getNodeParameter('model', itemIndex) as string;
-		console.log('modelName', modelName);
 		const options = this.getNodeParameter('options', itemIndex, {}) as ModelOptions;
-		console.log('options', options);
 		const builtInTools: ProviderTool[] = [];
-		console.log('builtInTools', builtInTools);
 		const builtInToolsParams = formatBuiltInTools(
 			this.getNodeParameter('builtInTools', itemIndex, {}) as IDataObject,
 		);
-		console.log('builtInToolsParams', builtInToolsParams);
 		if (builtInToolsParams.length) {
 			builtInTools.push(...builtInToolsParams);
 		}
