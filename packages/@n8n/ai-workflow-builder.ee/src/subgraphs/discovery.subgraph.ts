@@ -429,20 +429,31 @@ export class DiscoverySubgraph extends BaseSubgraph<
 			};
 		}
 
+		// Correct node versions against actual parsedNodeTypes.
+		// The LLM may return stale versions from its training data even when
+		// search_nodes provided the correct version.
+		const latestVersionMap = new Map<string, number>();
+		for (const nt of this.parsedNodeTypes) {
+			const ver = Array.isArray(nt.version) ? Math.max(...nt.version) : nt.version;
+			latestVersionMap.set(nt.name, ver);
+		}
+
+		for (const node of output.nodesFound) {
+			const latest = latestVersionMap.get(node.nodeName);
+			if (latest !== undefined) {
+				node.version = latest;
+			}
+		}
+
 		// Add baseline flow control nodes if not already discovered
 		const discoveredNames = new Set(output.nodesFound.map((node) => node.nodeName));
 		const baselineNodesToAdd = this.BASELINE_NODES.filter(
 			(baselineNode) => !discoveredNames.has(baselineNode.name),
 		);
 
-		// Look up versions for baseline nodes
 		for (const baselineNode of baselineNodesToAdd) {
-			const nodeType = this.parsedNodeTypes.find((nt) => nt.name === baselineNode.name);
-			if (nodeType) {
-				const version = Array.isArray(nodeType.version)
-					? Math.max(...nodeType.version)
-					: nodeType.version;
-
+			const version = latestVersionMap.get(baselineNode.name);
+			if (version !== undefined) {
 				output.nodesFound.push({
 					nodeName: baselineNode.name,
 					version,
@@ -485,10 +496,13 @@ export class DiscoverySubgraph extends BaseSubgraph<
 			const nodeType = nodeTypeMap.get(cacheKey);
 
 			if (!nodeType) {
-				this.logger?.warn('[Discovery] Node type not found during resource hydration', {
-					nodeName: node.nodeName,
-					nodeVersion: node.version,
-				});
+				this.logger?.warn(
+					`[Discovery] Node type not found during resource hydration ${node.nodeName}:${node.version}`,
+					{
+						nodeName: node.nodeName,
+						nodeVersion: node.version,
+					},
+				);
 				return node;
 			}
 
