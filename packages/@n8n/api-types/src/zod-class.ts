@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export interface ZodClass<T = unknown, Shape extends z.ZodRawShape = z.ZodRawShape> {
-	new (): T;
+	new (data: T): T;
 	schema: z.ZodObject<Shape>;
 	safeParse(data: unknown): z.SafeParseReturnType<unknown, T>;
 	parse(data: unknown): T;
@@ -29,12 +29,17 @@ export interface ZodClass<T = unknown, Shape extends z.ZodRawShape = z.ZodRawSha
  * ```
  */
 export const Z = {
-	class: <T extends z.ZodRawShape>(shape: T): ZodClass<z.infer<z.ZodObject<T>>, T> => {
+	class: <T extends z.ZodRawShape>(shape: T): ZodClass<z.objectOutputType<T, z.ZodTypeAny>, T> => {
 		const schema = z.object(shape);
-		type Output = z.infer<typeof schema>;
+		type Output = z.objectOutputType<T, z.ZodTypeAny>;
 
 		const DtoClass = class {
 			static schema = schema;
+
+			constructor(data: Output) {
+				const parsed = schema.parse(data);
+				Object.assign(this, parsed);
+			}
 
 			static safeParse(data: unknown) {
 				return schema.safeParse(data);
