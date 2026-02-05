@@ -134,6 +134,7 @@ const onAddCustomRoleClick = () => {
 			:model-value="data.role"
 			size="small"
 			variant="ghost"
+			:class="$style.roleSelect"
 			data-test-id="project-member-role-dropdown"
 			@update:model-value="onRoleSelect"
 		>
@@ -224,10 +225,21 @@ const onAddCustomRoleClick = () => {
 	display: inline-block;
 }
 
+.roleSelect {
+	padding: 0;
+	background-color: transparent;
+	min-height: auto;
+
+	&:not([data-disabled]):hover {
+		background-color: transparent;
+	}
+}
+
 .triggerContent {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--spacing--3xs);
+	font-size: var(--font-size--sm);
 }
 
 .selectItem {
