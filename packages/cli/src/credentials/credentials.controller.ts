@@ -34,7 +34,7 @@ import { hasGlobalScope, PROJECT_OWNER_ROLE_SLUG } from '@n8n/permissions';
 // eslint-disable-next-line n8n-local-rules/misplaced-n8n-typeorm-import
 import { In } from '@n8n/typeorm';
 import { deepCopy } from 'n8n-workflow';
-import type { ICredentialDataDecryptedObject } from 'n8n-workflow';
+import type { ICredentialDataDecryptedObject, ICredentialsDecrypted } from 'n8n-workflow';
 
 import { CredentialsFinderService } from './credentials-finder.service';
 import { CredentialsService } from './credentials.service';
@@ -162,6 +162,8 @@ export class CredentialsController {
 		}
 
 		const mergedCredentials = deepCopy(credentials);
+		// Ensure name is always set, falling back to stored credential's name
+		mergedCredentials.name = credentials.name ?? storedCredential.name;
 		const decryptedData = this.credentialsService.decrypt(storedCredential, true);
 
 		// When a sharee (or project viewer) opens a credential, the fields and the
@@ -172,7 +174,7 @@ export class CredentialsController {
 			req.user,
 			storedCredential,
 			decryptedData,
-			mergedCredentials,
+			mergedCredentials as ICredentialsDecrypted,
 		);
 
 		if (mergedCredentials.data) {
@@ -182,7 +184,10 @@ export class CredentialsController {
 			);
 		}
 
-		return await this.credentialsService.test(req.user.id, mergedCredentials);
+		return await this.credentialsService.test(
+			req.user.id,
+			mergedCredentials as ICredentialsDecrypted,
+		);
 	}
 
 	@Post('/')
