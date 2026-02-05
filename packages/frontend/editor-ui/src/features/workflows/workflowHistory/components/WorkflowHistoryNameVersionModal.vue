@@ -43,7 +43,7 @@ formEventBus.on('cancel', () => {
 	<WorkflowHistoryVersionFormModal
 		:modal-name="WORKFLOW_HISTORY_NAME_VERSION_MODAL_KEY"
 		:modal-title="i18n.baseText('workflowHistory.nameVersionModal.title')"
-		:submit-button-label="i18n.baseText('workflowHistory.nameVersionModal.nameVersion')"
+		:submit-button-label="i18n.baseText('generic.nameVersion')"
 		:data="{
 			...data,
 			eventBus: formEventBus,

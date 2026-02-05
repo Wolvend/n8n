@@ -331,7 +331,7 @@ const dropdownMenuActions = computed<Array<ActionDropdownItem<PUBLISH_ACTIONS>>>
 	if (isNamedVersionsEnabled.value) {
 		actions.push({
 			id: PUBLISH_ACTIONS.NAME_VERSION,
-			label: i18n.baseText('workflows.nameVersion'),
+			label: i18n.baseText('generic.nameVersion'),
 			shortcut: { metaKey: true, keys: ['S'] },
 			disabled: !hasUpdatePermission.value || !workflowsStore.workflow.versionId,
 		});
