@@ -1,15 +1,42 @@
+<<<<<<< HEAD
 import { SchemaRegistry } from '@kafkajs/confluent-schema-registry';
 import type { KafkaConfig, SASLOptions } from 'kafkajs';
 import { Kafka as apacheKafka, logLevel } from 'kafkajs';
+=======
+import type { EachBatchPayload } from 'kafkajs';
+import { Kafka as apacheKafka } from 'kafkajs';
+>>>>>>> ee1cc7fc (feat(Kafka Trigger Node): Refactoring and fixes (#25088))
 import type {
 	ITriggerFunctions,
-	IDataObject,
 	INodeType,
 	INodeTypeDescription,
 	ITriggerResponse,
+<<<<<<< HEAD
 	IRun,
 } from 'n8n-workflow';
 import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+=======
+} from 'n8n-workflow';
+import {
+	ensureError,
+	NodeConnectionTypes,
+	NodeOperationError,
+	TriggerCloseError,
+} from 'n8n-workflow';
+
+import {
+	type KafkaTriggerOptions,
+	connectEventListeners,
+	disconnectEventListeners,
+	setSchemaRegistry,
+	configureMessageParser,
+	createConfig,
+	createConsumerConfig,
+	configureDataEmitter,
+	getAutoCommitSettings,
+	runWithHeartbeat,
+} from './utils';
+>>>>>>> ee1cc7fc (feat(Kafka Trigger Node): Refactoring and fixes (#25088))
 
 export class KafkaTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -17,7 +44,11 @@ export class KafkaTrigger implements INodeType {
 		name: 'kafkaTrigger',
 		icon: { light: 'file:kafka.svg', dark: 'file:kafka.dark.svg' },
 		group: ['trigger'],
+<<<<<<< HEAD
 		version: [1, 1.1],
+=======
+		version: [1, 1.1, 1.2, 1.3],
+>>>>>>> ee1cc7fc (feat(Kafka Trigger Node): Refactoring and fixes (#25088))
 		description: 'Consume messages from a Kafka topic',
 		defaults: {
 			name: 'Kafka Trigger',
@@ -48,6 +79,88 @@ export class KafkaTrigger implements INodeType {
 				required: true,
 				placeholder: 'n8n-kafka',
 				description: 'ID of the consumer group',
+			},
+			{
+				displayName: 'Resolve Offset',
+				name: 'resolveOffset',
+				type: 'options',
+				default: 'onCompletion',
+				description:
+					'Select on which condition the offsets should be resolved. In the manual mode, when execution started by clicking on Execute Workflow or Execute Step button, offsets are always resolved immediately after message received.',
+				options: [
+					{
+						name: 'On Execution Completion',
+						value: 'onCompletion',
+						description: 'Resolve offset after execution completion regardless of the status',
+					},
+					{
+						name: 'On Execution Success',
+						value: 'onSuccess',
+						description: 'Resolve offset only if execution status equals success',
+					},
+					{
+						name: 'On Allowed Execution Statuses',
+						value: 'onStatus',
+						description: 'Resolve offset only if execution status in the list of selected statuses',
+					},
+					{
+						name: 'Immediately',
+						value: 'immediately',
+						description:
+							'Resolve offset immediately after message received. This option is not recommended as it can cause messages loss.',
+					},
+				],
+				displayOptions: {
+					show: {
+						'@version': [{ _cnd: { gte: 1.3 } }],
+					},
+				},
+			},
+			{
+				displayName: 'Allowed Statuses',
+				name: 'allowedStatuses',
+				type: 'multiOptions',
+				default: ['success'],
+				options: [
+					{
+						name: 'Canceled',
+						value: 'canceled',
+					},
+					{
+						name: 'Crashed',
+						value: 'crashed',
+					},
+					{
+						name: 'Error',
+						value: 'error',
+					},
+					{
+						name: 'New',
+						value: 'new',
+					},
+					{
+						name: 'Running',
+						value: 'running',
+					},
+					{
+						name: 'Success',
+						value: 'success',
+					},
+					{
+						name: 'Unknown',
+						value: 'unknown',
+					},
+					{
+						name: 'Waiting',
+						value: 'waiting',
+					},
+				],
+				displayOptions: {
+					show: {
+						'@version': [{ _cnd: { gte: 1.3 } }],
+						resolveOffset: ['onStatus'],
+					},
+				},
 			},
 			{
 				displayName: 'Use Schema Registry',
@@ -102,12 +215,70 @@ export class KafkaTrigger implements INodeType {
 						hint: 'Value in milliseconds',
 					},
 					{
+<<<<<<< HEAD
+=======
+						displayName: 'Batch Size',
+						name: 'batchSize',
+						type: 'number',
+						default: 1,
+						description:
+							'Number of messages to process in each batch, when set to 1, message-by-message processing is enabled',
+					},
+					{
+						displayName: 'Each Batch Auto Resolve',
+						name: 'eachBatchAutoResolve',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to auto resolve offsets for each batch',
+						displayOptions: {
+							show: {
+								'@version': [{ _cnd: { gte: 1.3 } }],
+							},
+						},
+					},
+					{
+						displayName: 'Fetch Max Bytes',
+						name: 'fetchMaxBytes',
+						type: 'number',
+						default: 1048576,
+						description:
+							'Maximum amount of data the server should return for a fetch request. In bytes. Default is 1MB. Higher values allow fetching more messages at once.',
+					},
+					{
+						displayName: 'Fetch Min Bytes',
+						name: 'fetchMinBytes',
+						type: 'number',
+						default: 1,
+						description:
+							'Minimum amount of data the server should return for a fetch request. In bytes. Server will wait up to fetchMaxWaitTime for this amount to accumulate.',
+					},
+					{
+>>>>>>> ee1cc7fc (feat(Kafka Trigger Node): Refactoring and fixes (#25088))
+						displayName: 'Heartbeat Interval',
+						name: 'heartbeatInterval',
+						type: 'number',
+						default: 10000,
+						description:
+							'Controls how often the consumer sends heartbeats to the broker to indicate it is still alive. Must be lower than Session Timeout. Recommended value is approximately one third of the Session Timeout (for example: 10s heartbeat with 30s session timeout).',
+						hint: 'Value in milliseconds',
+						displayOptions: {
+							show: {
+								'@version': [{ _cnd: { gte: 1.3 } }],
+							},
+						},
+					},
+					{
 						displayName: 'Heartbeat Interval',
 						name: 'heartbeatInterval',
 						type: 'number',
 						default: 3000,
 						description: "Heartbeats are used to ensure that the consumer's session stays active",
 						hint: 'The value must be set lower than Session Timeout',
+						displayOptions: {
+							hide: {
+								'@version': [{ _cnd: { gte: 1.3 } }],
+							},
+						},
 					},
 					{
 						displayName: 'Max Number of Requests',
@@ -132,17 +303,33 @@ export class KafkaTrigger implements INodeType {
 						description: 'Whether to try to parse the message to an object',
 					},
 					{
+<<<<<<< HEAD
+=======
+						displayName: 'Keep Message as Binary Data',
+						name: 'keepBinaryData',
+						type: 'boolean',
+						default: false,
+						displayOptions: {
+							show: {
+								'@version': [{ _cnd: { gte: 1.2 } }],
+							},
+						},
+						description:
+							'Whether to keep message value as binary data for downstream processing (e.g., Avro deserialization)',
+					},
+					{
+>>>>>>> ee1cc7fc (feat(Kafka Trigger Node): Refactoring and fixes (#25088))
 						displayName: 'Parallel Processing',
 						name: 'parallelProcessing',
 						type: 'boolean',
 						default: true,
+						description:
+							'Whether to process messages in parallel resolving offsets independently or in order resolving offsets after execution completion. In the manual mode, when execution started by clicking on Execute Workflow or Execute Step button, messages are processed in parallel resolving offsets immediately.',
 						displayOptions: {
-							hide: {
-								'@version': [1],
+							show: {
+								'@version': [1.1, 1.2],
 							},
 						},
-						description:
-							'Whether to process messages in parallel or by keeping the message in order',
 					},
 					{
 						displayName: 'Only Message',
@@ -164,11 +351,42 @@ export class KafkaTrigger implements INodeType {
 						description: 'Whether to return the headers received from Kafka',
 					},
 					{
+<<<<<<< HEAD
+=======
+						displayName: 'Rebalance Timeout',
+						name: 'rebalanceTimeout',
+						type: 'number',
+						default: 600000,
+						description: 'The maximum time allowed for a consumer to join the group',
+					},
+					{
+						displayName: 'Retry Delay on Error',
+						name: 'errorRetryDelay',
+						type: 'number',
+						default: 5000,
+						description:
+							'Delay in milliseconds before retrying after a failed offset resolution. This prevents rapid retry loops that could overwhelm the Kafka broker.',
+						hint: 'Value in milliseconds',
+						typeOptions: {
+							minValue: 1000,
+						},
+						displayOptions: {
+							show: {
+								'@version': [{ _cnd: { gte: 1.3 } }],
+							},
+							hide: {
+								'/resolveOffset': ['immediately'],
+							},
+						},
+					},
+					{
+>>>>>>> ee1cc7fc (feat(Kafka Trigger Node): Refactoring and fixes (#25088))
 						displayName: 'Session Timeout',
 						name: 'sessionTimeout',
 						type: 'number',
 						default: 30000,
-						description: 'The time to await a response in ms',
+						description:
+							'Timeout in milliseconds used to detect failures. Has to be higher than Heartbeat Interval. During the workflow execution heartbeat will be sent periodically to keep the session alive with configured Heartbeat Interval.',
 						hint: 'Value in milliseconds',
 					},
 				],
@@ -177,18 +395,13 @@ export class KafkaTrigger implements INodeType {
 	};
 
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
-		const topic = this.getNodeParameter('topic') as string;
+		const nodeVersion = this.getNode().typeVersion;
 
-		const groupId = this.getNodeParameter('groupId') as string;
+		const config = await createConfig(this);
+		const kafka = new apacheKafka(config);
+		const registry = setSchemaRegistry(this);
 
-		const credentials = await this.getCredentials('kafka');
-
-		const brokers = ((credentials.brokers as string) ?? '').split(',').map((item) => item.trim());
-
-		const clientId = credentials.clientId as string;
-
-		const ssl = credentials.ssl as boolean;
-
+<<<<<<< HEAD
 		const options = this.getNodeParameter('options', {}) as IDataObject;
 
 		options.nodeVersion = this.getNode().typeVersion;
@@ -239,6 +452,28 @@ export class KafkaTrigger implements INodeType {
 		async function closeFunction() {
 			await consumer.disconnect();
 		}
+=======
+		const options = this.getNodeParameter('options', {}) as KafkaTriggerOptions;
+		if (options.keepBinaryData && nodeVersion < 1.2) {
+			options.keepBinaryData = undefined;
+		}
+
+		const consumerConfig = createConsumerConfig(this, options, nodeVersion);
+		const consumer = kafka.consumer(consumerConfig);
+
+		const processMessage = configureMessageParser(
+			options,
+			this.logger,
+			registry,
+			this.helpers.prepareBinaryData,
+		);
+
+		const topic = this.getNodeParameter('topic') as string;
+		const batchSize = options.batchSize ?? 1;
+		const partitionsConsumedConcurrently = options.partitionsConsumedConcurrently || undefined;
+
+		const dataEmitter = configureDataEmitter(this, options, nodeVersion);
+>>>>>>> ee1cc7fc (feat(Kafka Trigger Node): Refactoring and fixes (#25088))
 
 		const startConsumer = async () => {
 			await consumer.connect();
@@ -251,6 +486,7 @@ export class KafkaTrigger implements INodeType {
 					let data: IDataObject = {};
 					let value = message.value?.toString() as string;
 
+<<<<<<< HEAD
 					if (options.jsonParseMessage) {
 						try {
 							value = JSON.parse(value);
@@ -292,6 +528,84 @@ export class KafkaTrigger implements INodeType {
 					}
 				},
 			});
+=======
+				await consumer.run({
+					partitionsConsumedConcurrently,
+					...getAutoCommitSettings(options),
+					eachBatch: async ({
+						batch,
+						resolveOffset,
+						heartbeat,
+						isStale,
+						isRunning,
+						commitOffsetsIfNecessary,
+					}: EachBatchPayload) => {
+						// avoid throwing error in the callback, as it leads to consumer stop, disconnect and crash
+						const messages = batch.messages;
+						const messageTopic = batch.topic;
+
+						for (let i = 0; i < messages.length; i += batchSize) {
+							// stop if consumer stopped or partition revoked
+							if (!isRunning() || isStale()) {
+								this.logger.debug('Batch processing interrupted due to rebalance or consumer stop');
+								break;
+							}
+
+							const chunk = messages.slice(i, Math.min(i + batchSize, messages.length));
+
+							let processedData;
+							try {
+								processedData = await Promise.all(
+									chunk.map(async (message) => await processMessage(message, messageTopic)),
+								);
+							} catch (err) {
+								this.logger.error('Chunk processing failed, skipping commit for this chunk', err);
+								await heartbeat();
+								break;
+							}
+
+							const result = await runWithHeartbeat(
+								dataEmitter(processedData),
+								heartbeat,
+								consumerConfig.heartbeatInterval,
+							);
+
+							if (!result.success) {
+								this.logger.warn('runWithHeartbeat failed, skipping commit for this chunk');
+								await heartbeat();
+								break;
+							}
+
+							const lastMessage = chunk[chunk.length - 1];
+							if (lastMessage) {
+								resolveOffset(lastMessage.offset);
+								await commitOffsetsIfNecessary();
+							}
+
+							await heartbeat();
+						}
+					},
+				});
+			} catch (error) {
+				this.logger.error('Failed to start Kafka consumer', { error });
+				throw new NodeOperationError(this.getNode(), error);
+			}
+		};
+
+		const listeners = connectEventListeners(consumer, this.logger);
+
+		const closeFunction = async () => {
+			try {
+				disconnectEventListeners(listeners);
+				await consumer.stop();
+				await consumer.disconnect();
+			} catch (error) {
+				throw new TriggerCloseError(this.getNode(), {
+					cause: ensureError(error),
+					level: 'warning',
+				});
+			}
+>>>>>>> ee1cc7fc (feat(Kafka Trigger Node): Refactoring and fixes (#25088))
 		};
 
 		if (this.getMode() !== 'manual') {

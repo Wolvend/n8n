@@ -337,7 +337,11 @@ export class WorkflowRunner {
 					if (workflowExecution.isCanceled) {
 						fullRunData.finished = false;
 					}
+<<<<<<< HEAD
 					fullRunData.status = this.activeExecutions.getStatus(executionId);
+=======
+
+>>>>>>> ee1cc7fc (feat(Kafka Trigger Node): Refactoring and fixes (#25088))
 					this.activeExecutions.resolveExecutionResponsePromise(executionId);
 					this.activeExecutions.finalizeExecution(executionId, fullRunData);
 				})
